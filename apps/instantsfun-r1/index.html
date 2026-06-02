@@ -28,6 +28,7 @@
 
       body {
         border: 4px solid #ffcc29;
+        position: relative;
       }
 
       main {
@@ -119,6 +120,14 @@
         text-transform: uppercase;
       }
 
+      button.item.dark .name {
+        color: #ffffff;
+      }
+
+      button.item.dark .dot {
+        background: rgba(255, 255, 255, 0.32);
+      }
+
       footer {
         display: none;
       }
@@ -152,14 +161,38 @@
         overflow: hidden;
         clip: rect(0 0 0 0);
       }
+
+      .side-hint {
+        position: absolute;
+        top: 31px;
+        right: -4px;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: auto auto;
+        align-items: center;
+        gap: 0;
+        height: 11px;
+        padding: 1px 1px 1px 3px;
+        border: 2px solid #050505;
+        border-right: 0;
+        background: #6dd6ff;
+        color: #050505;
+        font-size: 7px;
+        font-weight: 900;
+        line-height: 1;
+        text-transform: uppercase;
+        clip-path: polygon(0 4px, 4px 4px, 4px 0, 100% 0, 100% 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+      }
     </style>
   </head>
   <body>
     <main>
       <header>
         <h1>Instantsfun!</h1>
-        <button class="action random" id="randomBtn">Rand</button>
+        <button class="action stop" id="stopBtn">Stop</button>
       </header>
+
+      <div class="side-hint" aria-hidden="true"><span>rand</span><span>→</span></div>
 
       <section class="list" id="list"></section>
 
@@ -194,7 +227,7 @@
 
         sounds.forEach((sound, index) => {
           const button = document.createElement("button");
-          button.className = "item";
+          button.className = sound.color === "#141414" ? "item dark" : "item";
           button.type = "button";
           button.dataset.index = String(index);
           button.style.setProperty("--accent", sound.color);
@@ -282,7 +315,7 @@
         }, { frequency: 30 });
       }
 
-      document.getElementById("randomBtn").addEventListener("click", playRandom);
+      document.getElementById("stopBtn").addEventListener("click", () => stopAll("stop"));
 
       window.addEventListener("scrollUp", () => move(1));
       window.addEventListener("scrollDown", () => move(-1));

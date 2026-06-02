@@ -42,6 +42,8 @@ Para instalarlas en Rabbit R1 necesitas URLs HTTPS publicas:
 
 El generador oficial espera exactamente estos campos: `title`, `url`, `description`, `iconUrl`, `themeColor`.
 
+Tambien hay QR ya generados en `qr/` y publicados en `https://kalvinone2.github.io/rabbitsdk/qr/`.
+
 ## URLs esperadas
 
 Si publicas en GitHub Pages como proyecto:

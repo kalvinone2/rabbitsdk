@@ -1,0 +1,56 @@
+# Rabbit R1 Creations sandbox
+
+Dos apps de prueba para validar el SDK de Rabbit R1 Creations en hardware real.
+
+## Apps
+
+- `apps/fortune-wheel/`: ruleta absurda con scroll wheel, PTT, acelerometro, almacenamiento local y respuesta hablada opcional.
+- `apps/excuse-bot/`: generador de excusas tontas usando el LLM del R1, PTT, scroll wheel, almacenamiento y TTS.
+
+## Desarrollo local
+
+Estas apps son HTML/CSS/JS estatico sin build.
+
+```bash
+python3 -m http.server 8080
+```
+
+Despues abre:
+
+- `http://localhost:8080/apps/fortune-wheel/`
+- `http://localhost:8080/apps/excuse-bot/`
+
+En navegador normal veras fallbacks porque las APIs `PluginMessageHandler`, `creationStorage` y `creationSensors` solo existen dentro del R1.
+
+## Hosting
+
+Para instalarlas en Rabbit R1 necesitas URLs HTTPS publicas:
+
+- GitHub Pages, Netlify o Vercel funcionan bien.
+- Puedes guardar el codigo en un repo privado, pero la pagina publicada debe ser accesible por el R1.
+- En GitHub Pages, los sitios publicados desde repos privados dependen del plan; ademas, la web publicada puede seguir siendo publica aunque el repo sea privado.
+- No pongas API keys ni secretos en frontend. Usa backend propio si alguna app necesita credenciales.
+
+## Instalacion en R1
+
+1. Publica este directorio como web estatica.
+2. Sustituye la URL de los JSON de `qr-data/` si el repo no se publica como `https://kalvinone2.github.io/rabbitsdk`.
+3. Genera QR con la herramienta `qr/final` del repo oficial `rabbit-hmi-oss/creations-sdk`.
+4. En el R1 abre `creations`, elige `add via QR code` y escanea.
+
+El generador oficial espera exactamente estos campos: `title`, `url`, `description`, `iconUrl`, `themeColor`.
+
+## URLs esperadas
+
+Si publicas en GitHub Pages como proyecto:
+
+- `https://kalvinone2.github.io/rabbitsdk/apps/fortune-wheel/`
+- `https://kalvinone2.github.io/rabbitsdk/apps/excuse-bot/`
+
+## Generador QR
+
+El repo oficial contiene el generador en `qr/final`, pero la URL de GitHub Pages del proyecto no esta publicada actualmente. Opciones practicas:
+
+- Clonar `https://github.com/rabbit-hmi-oss/creations-sdk` y abrir/hostear `qr/final/index.html`.
+- Copiar la carpeta `qr/final` a este repo si quieres tener el generador dentro del mismo proyecto.
+- Pegar manualmente los valores de `qr-data/*.json` en el formulario del generador.

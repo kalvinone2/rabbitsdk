@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=240, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Ruleta Chorra</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 240px;
+        height: 282px;
+        margin: 0;
+        overflow: hidden;
+        background: #17130f;
+        color: #fff8ed;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        border: 4px solid #ff6b2b;
+      }
+
+      main {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 8px;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .count {
+        min-width: 42px;
+        border: 1px solid #6d5b48;
+        border-radius: 6px;
+        padding: 4px 6px;
+        text-align: center;
+        font-size: 12px;
+        color: #f7d9b7;
+      }
+
+      .wheel {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 0;
+        border: 1px solid #6d5b48;
+        border-radius: 8px;
+        background: #241e18;
+        overflow: hidden;
+      }
+
+      .wheel::before {
+        content: "";
+        position: absolute;
+        width: 132px;
+        height: 132px;
+        border-radius: 50%;
+        border: 16px solid #ff6b2b;
+        border-top-color: #f3c74e;
+        border-right-color: #45c28b;
+        transform: rotate(var(--turn, 0deg));
+        transition: transform 260ms ease;
+      }
+
+      .answer {
+        position: relative;
+        z-index: 1;
+        width: 158px;
+        min-height: 78px;
+        display: grid;
+        place-items: center;
+        padding: 10px;
+        border-radius: 8px;
+        background: rgba(23, 19, 15, 0.88);
+        text-align: center;
+        font-size: 20px;
+        font-weight: 800;
+        line-height: 1.05;
+      }
+
+      .bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      button {
+        height: 36px;
+        border: 0;
+        border-radius: 7px;
+        background: #ff6b2b;
+        color: #17130f;
+        font-weight: 800;
+        font-size: 13px;
+      }
+
+      button.secondary {
+        background: #f3c74e;
+      }
+
+      .status {
+        min-height: 14px;
+        font-size: 11px;
+        color: #c9b8a5;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Ruleta chorra</h1>
+        <div class="count" id="count">0</div>
+      </header>
+
+      <section class="wheel" id="wheel">
+        <div class="answer" id="answer">pulsa PTT</div>
+      </section>
+
+      <footer>
+        <div class="bar">
+          <button id="rollBtn">Lanzar</button>
+          <button class="secondary" id="speakBtn">Hablar</button>
+        </div>
+        <div class="status" id="status">scroll cambia, shake relanza</div>
+      </footer>
+    </main>
+
+    <script>
+      const answers = [
+        "si, pero con drama",
+        "ni de broma",
+        "hazlo en naranja",
+        "pregunta luego",
+        "modo caos",
+        "claramente si",
+        "necesita cafe",
+        "demasiado pronto",
+        "dale al boton",
+        "esto escala"
+      ];
+
+      const state = {
+        index: 0,
+        rolls: 0,
+        turn: 0,
+        lastShake: 0
+      };
+
+      const answerEl = document.getElementById("answer");
+      const countEl = document.getElementById("count");
+      const wheelEl = document.getElementById("wheel");
+      const statusEl = document.getElementById("status");
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function render() {
+        answerEl.textContent = answers[state.index];
+        countEl.textContent = String(state.rolls);
+        wheelEl.style.setProperty("--turn", `${state.turn}deg`);
+      }
+
+      async function loadRolls() {
+        try {
+          if (!window.creationStorage) return;
+          const saved = await window.creationStorage.plain.getItem("fortune_rolls");
+          if (saved) {
+            state.rolls = Number(atob(saved)) || 0;
+            render();
+          }
+        } catch (error) {
+          setStatus("storage no disponible");
+        }
+      }
+
+      async function saveRolls() {
+        try {
+          if (!window.creationStorage) return;
+          await window.creationStorage.plain.setItem("fortune_rolls", btoa(String(state.rolls)));
+        } catch (error) {
+          setStatus("no se pudo guardar");
+        }
+      }
+
+      function roll(offset = 1) {
+        state.index = (state.index + offset + answers.length) % answers.length;
+        state.rolls += 1;
+        state.turn += 97 + Math.abs(offset * 23);
+        render();
+        saveRolls();
+        setStatus("resultado listo");
+      }
+
+      function speak() {
+        const message = `Lee esta respuesta de ruleta absurda en espanol, con tono breve y seco: ${answers[state.index]}`;
+        if (typeof PluginMessageHandler === "undefined") {
+          setStatus("TTS solo en R1");
+          return;
+        }
+
+        PluginMessageHandler.postMessage(JSON.stringify({
+          message,
+          useLLM: true,
+          wantsR1Response: true,
+          wantsJournalEntry: false
+        }));
+        setStatus("hablando...");
+      }
+
+      function startAccelerometer() {
+        if (!window.creationSensors || !window.creationSensors.accelerometer) return;
+
+        window.creationSensors.accelerometer.start((data) => {
+          const x = data.rawX ?? data.x ?? 0;
+          const y = data.rawY ?? data.y ?? 0;
+          const z = data.rawZ ?? data.z ?? 0;
+          const force = Math.abs(x) + Math.abs(y) + Math.abs(z);
+          const now = Date.now();
+
+          if (force > 22 && now - state.lastShake > 900) {
+            state.lastShake = now;
+            roll(2);
+            setStatus("shake detectado");
+          }
+        }, { frequency: 30 });
+      }
+
+      document.getElementById("rollBtn").addEventListener("click", () => roll(1));
+      document.getElementById("speakBtn").addEventListener("click", speak);
+
+      window.addEventListener("sideClick", () => roll(1));
+      window.addEventListener("longPressStart", speak);
+      window.addEventListener("scrollUp", () => roll(1));
+      window.addEventListener("scrollDown", () => roll(-1));
+
+      window.onPluginMessage = function onPluginMessage(data) {
+        if (data && (data.message || data.data)) setStatus("R1 respondio");
+      };
+
+      render();
+      loadRolls();
+      startAccelerometer();
+    </script>
+  </body>
+</html>
+

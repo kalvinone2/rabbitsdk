@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=240, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>ExcusaBot</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 240px;
+        height: 282px;
+        margin: 0;
+        overflow: hidden;
+        background: #101820;
+        color: #f4f7f2;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        border: 4px solid #57d68d;
+      }
+
+      main {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 8px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 19px;
+        line-height: 1;
+      }
+
+      .modes {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+      }
+
+      .mode {
+        height: 28px;
+        border: 1px solid #335142;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        color: #9cb5a7;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .mode.active {
+        background: #57d68d;
+        border-color: #57d68d;
+        color: #101820;
+      }
+
+      .card {
+        min-height: 0;
+        border: 1px solid #335142;
+        border-radius: 8px;
+        padding: 10px;
+        background: #17232b;
+        display: grid;
+        align-content: center;
+      }
+
+      #excuse {
+        margin: 0;
+        font-size: 17px;
+        line-height: 1.12;
+        font-weight: 800;
+      }
+
+      .hint {
+        margin-top: 8px;
+        color: #9cb5a7;
+        font-size: 11px;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      button {
+        height: 36px;
+        border: 0;
+        border-radius: 7px;
+        background: #57d68d;
+        color: #101820;
+        font-weight: 800;
+        font-size: 13px;
+      }
+
+      button.secondary {
+        background: #ffd166;
+      }
+
+      .status {
+        min-height: 14px;
+        color: #9cb5a7;
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>ExcusaBot</h1>
+
+      <section class="modes" id="modes">
+        <div class="mode active">tarde</div>
+        <div class="mode">bug</div>
+        <div class="mode">cafe</div>
+      </section>
+
+      <section class="card">
+        <p id="excuse">Pulsa PTT para pedir una excusa inutil.</p>
+        <div class="hint">scroll cambia categoria</div>
+      </section>
+
+      <footer>
+        <div class="actions">
+          <button id="askBtn">Pedir</button>
+          <button class="secondary" id="repeatBtn">Repetir</button>
+        </div>
+        <div class="status" id="status">listo</div>
+      </footer>
+    </main>
+
+    <script>
+      const modes = ["tarde", "bug", "cafe"];
+      const fallbackExcuses = {
+        tarde: "El reloj entro en modo creativo.",
+        bug: "No era un bug, era una demo honesta.",
+        cafe: "El cafe estaba compilando."
+      };
+
+      const state = {
+        modeIndex: 0,
+        lastExcuse: fallbackExcuses.tarde
+      };
+
+      const modeEls = Array.from(document.querySelectorAll(".mode"));
+      const excuseEl = document.getElementById("excuse");
+      const statusEl = document.getElementById("status");
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function currentMode() {
+        return modes[state.modeIndex];
+      }
+
+      function renderModes() {
+        modeEls.forEach((el, index) => {
+          el.classList.toggle("active", index === state.modeIndex);
+        });
+      }
+
+      async function saveLastExcuse() {
+        try {
+          if (!window.creationStorage) return;
+          await window.creationStorage.plain.setItem("last_excuse", btoa(unescape(encodeURIComponent(state.lastExcuse))));
+        } catch (error) {
+          setStatus("storage no disponible");
+        }
+      }
+
+      async function loadLastExcuse() {
+        try {
+          if (!window.creationStorage) return;
+          const saved = await window.creationStorage.plain.getItem("last_excuse");
+          if (saved) {
+            state.lastExcuse = decodeURIComponent(escape(atob(saved)));
+            excuseEl.textContent = state.lastExcuse;
+          }
+        } catch (error) {
+          setStatus("no se pudo cargar");
+        }
+      }
+
+      function changeMode(offset) {
+        state.modeIndex = (state.modeIndex + offset + modes.length) % modes.length;
+        renderModes();
+        setStatus(`modo: ${currentMode()}`);
+      }
+
+      function askExcuse() {
+        const mode = currentMode();
+        const prompt = [
+          "Genera una excusa absurda en espanol.",
+          `Categoria: ${mode}.`,
+          "Debe tener maximo 12 palabras.",
+          "Devuelve solo JSON valido con este formato exacto:",
+          '{"excuse":"texto"}'
+        ].join(" ");
+
+        if (typeof PluginMessageHandler === "undefined") {
+          state.lastExcuse = fallbackExcuses[mode];
+          excuseEl.textContent = state.lastExcuse;
+          saveLastExcuse();
+          setStatus("fallback local");
+          return;
+        }
+
+        PluginMessageHandler.postMessage(JSON.stringify({
+          message: prompt,
+          useLLM: true,
+          wantsR1Response: false,
+          wantsJournalEntry: false
+        }));
+        setStatus("pensando...");
+      }
+
+      function repeatExcuse() {
+        if (typeof PluginMessageHandler === "undefined") {
+          setStatus("TTS solo en R1");
+          return;
+        }
+
+        PluginMessageHandler.postMessage(JSON.stringify({
+          message: `Lee esta excusa en voz alta: ${state.lastExcuse}`,
+          useLLM: true,
+          wantsR1Response: true,
+          wantsJournalEntry: false
+        }));
+        setStatus("repitiendo...");
+      }
+
+      function extractExcuse(data) {
+        const candidates = [data && data.data, data && data.message].filter(Boolean);
+
+        for (const candidate of candidates) {
+          try {
+            const parsed = typeof candidate === "string" ? JSON.parse(candidate) : candidate;
+            if (parsed && parsed.excuse) return parsed.excuse;
+          } catch (error) {
+            if (typeof candidate === "string" && candidate.length < 90) return candidate;
+          }
+        }
+
+        return "";
+      }
+
+      document.getElementById("askBtn").addEventListener("click", askExcuse);
+      document.getElementById("repeatBtn").addEventListener("click", repeatExcuse);
+
+      window.addEventListener("sideClick", askExcuse);
+      window.addEventListener("longPressStart", repeatExcuse);
+      window.addEventListener("scrollUp", () => changeMode(1));
+      window.addEventListener("scrollDown", () => changeMode(-1));
+
+      window.onPluginMessage = function onPluginMessage(data) {
+        const excuse = extractExcuse(data);
+        if (!excuse) {
+          setStatus("respuesta rara");
+          return;
+        }
+
+        state.lastExcuse = excuse;
+        excuseEl.textContent = excuse;
+        saveLastExcuse();
+        setStatus("excusa lista");
+      };
+
+      renderModes();
+      loadLastExcuse();
+    </script>
+  </body>
+</html>
+

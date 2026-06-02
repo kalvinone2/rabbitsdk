@@ -9,6 +9,12 @@
         box-sizing: border-box;
       }
 
+      @font-face {
+        font-family: "InstantsfunLogo";
+        src: url("./slapstick_shaded.ttf") format("truetype");
+        font-display: swap;
+      }
+
       html,
       body {
         width: 240px;
@@ -28,77 +34,30 @@
         width: 100%;
         height: 100%;
         display: grid;
-        grid-template-rows: auto auto 1fr auto;
-        gap: 6px;
-        padding: 8px;
+        grid-template-rows: 26px 1fr;
+        gap: 5px;
+        padding: 6px;
       }
 
       header {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: 1fr 48px;
         align-items: center;
-        gap: 8px;
+        gap: 5px;
+        min-height: 0;
       }
 
       h1 {
         margin: 0;
-        font-size: 18px;
-        line-height: 1;
-      }
-
-      .counter {
-        min-width: 42px;
-        height: 25px;
-        display: grid;
-        place-items: center;
-        border: 1px solid #4f5664;
-        border-radius: 6px;
-        color: #ffcc29;
-        font-size: 11px;
-        font-weight: 800;
-      }
-
-      .now {
-        min-height: 39px;
-        display: grid;
-        grid-template-columns: 31px 1fr;
-        gap: 7px;
-        align-items: center;
-        border: 2px solid #050505;
-        padding: 6px;
-        background: #171c26;
-        box-shadow: inset -2px -2px 0 #06080d, inset 2px 2px 0 #313847;
-      }
-
-      .orb {
-        width: 27px;
-        height: 27px;
-        background: var(--accent, #ff3b30);
-        clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px));
-        box-shadow: inset -5px -5px 0 rgba(0, 0, 0, 0.24);
-      }
-
-      .label {
         min-width: 0;
-      }
-
-      .label strong {
-        display: block;
-        font-size: 15px;
+        overflow: hidden;
+        color: #ffffff;
+        font-family: "InstantsfunLogo", ui-sans-serif, system-ui, sans-serif;
+        font-size: 21px;
+        font-weight: 400;
         line-height: 1;
+        letter-spacing: 0;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .label span {
-        display: block;
-        margin-top: 4px;
-        color: #9da6b8;
-        font-size: 10px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
       }
 
       .list {
@@ -161,16 +120,14 @@
       }
 
       footer {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 7px;
+        display: none;
       }
 
       .action {
-        height: 34px;
+        height: 24px;
         border: 2px solid #050505;
         color: #101010;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: 850;
         clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px));
         box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.22), inset 3px 3px 0 rgba(255, 255, 255, 0.2);
@@ -189,37 +146,24 @@
       }
 
       .status {
-        grid-column: 1 / -1;
-        height: 12px;
-        color: #9da6b8;
-        font-size: 10px;
-        white-space: nowrap;
+        position: fixed;
+        width: 1px;
+        height: 1px;
         overflow: hidden;
-        text-overflow: ellipsis;
+        clip: rect(0 0 0 0);
       }
     </style>
   </head>
   <body>
     <main>
       <header>
-        <h1>Instantsfun</h1>
-        <div class="counter" id="counter">1/1</div>
+        <h1>Instantsfun!</h1>
+        <button class="action random" id="randomBtn">Rand</button>
       </header>
-
-      <section class="now">
-        <div class="orb" id="heroOrb"></div>
-        <div class="label">
-          <strong id="title">...</strong>
-          <span id="subtitle">scroll navega, lateral random</span>
-        </div>
-      </section>
 
       <section class="list" id="list"></section>
 
       <footer>
-        <button class="action play" id="playBtn">Play</button>
-        <button class="action random" id="randomBtn">Rand</button>
-        <button class="action stop" id="stopBtn">Stop</button>
         <div class="status" id="status">shake detiene todo</div>
       </footer>
     </main>
@@ -235,11 +179,7 @@
       };
 
       const listEl = document.getElementById("list");
-      const titleEl = document.getElementById("title");
-      const subtitleEl = document.getElementById("subtitle");
-      const counterEl = document.getElementById("counter");
       const statusEl = document.getElementById("status");
-      const heroOrbEl = document.getElementById("heroOrb");
 
       function setStatus(text) {
         statusEl.textContent = text;
@@ -273,18 +213,7 @@
       }
 
       function updateSelection(shouldScroll = true) {
-        if (!sounds.length) {
-          titleEl.textContent = "Sin botones";
-          subtitleEl.textContent = "no hay sonidos cargados";
-          counterEl.textContent = "0/0";
-          return;
-        }
-
-        const current = sounds[state.index];
-        titleEl.textContent = current.name;
-        subtitleEl.textContent = `${sounds.length} botones cargados`;
-        counterEl.textContent = `${state.index + 1}/${sounds.length}`;
-        heroOrbEl.style.setProperty("--accent", current.color);
+        if (!sounds.length) return;
 
         listEl.querySelectorAll(".item.active").forEach((button) => {
           button.classList.remove("active");
@@ -353,9 +282,7 @@
         }, { frequency: 30 });
       }
 
-      document.getElementById("playBtn").addEventListener("click", playSelected);
       document.getElementById("randomBtn").addEventListener("click", playRandom);
-      document.getElementById("stopBtn").addEventListener("click", () => stopAll("stop"));
 
       window.addEventListener("scrollUp", () => move(1));
       window.addEventListener("scrollDown", () => move(-1));

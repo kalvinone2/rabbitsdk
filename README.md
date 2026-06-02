@@ -6,7 +6,7 @@ Dos apps de prueba para validar el SDK de Rabbit R1 Creations en hardware real.
 
 - `apps/fortune-wheel/`: ruleta absurda con scroll wheel, PTT, acelerometro, almacenamiento local y respuesta hablada opcional.
 - `apps/excuse-bot/`: generador de excusas tontas usando el LLM del R1, PTT, scroll wheel, almacenamiento y TTS.
-- `apps/instantsfun-r1/`: mini soundboard de Instantsfun con listado, reproduccion directa de MP3, shake para parar y boton lateral random.
+- `apps/instantsfun-r1/`: mini soundboard de Instantsfun con 424 botones precargados, rejilla 2 columnas, reproduccion directa de MP3, shake para parar y boton lateral random.
 
 ## Desarrollo local
 

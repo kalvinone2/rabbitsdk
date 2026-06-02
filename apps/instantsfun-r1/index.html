@@ -29,8 +29,8 @@
         height: 100%;
         display: grid;
         grid-template-rows: auto auto 1fr auto;
-        gap: 7px;
-        padding: 9px;
+        gap: 6px;
+        padding: 8px;
       }
 
       header {
@@ -59,23 +59,23 @@
       }
 
       .now {
-        min-height: 43px;
+        min-height: 39px;
         display: grid;
-        grid-template-columns: 34px 1fr;
-        gap: 8px;
+        grid-template-columns: 31px 1fr;
+        gap: 7px;
         align-items: center;
-        border: 1px solid #4f5664;
-        border-radius: 8px;
-        padding: 7px;
+        border: 2px solid #050505;
+        padding: 6px;
         background: #171c26;
+        box-shadow: inset -2px -2px 0 #06080d, inset 2px 2px 0 #313847;
       }
 
       .orb {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
+        width: 27px;
+        height: 27px;
         background: var(--accent, #ff3b30);
-        box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.22);
+        clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px));
+        box-shadow: inset -5px -5px 0 rgba(0, 0, 0, 0.24);
       }
 
       .label {
@@ -103,51 +103,61 @@
 
       .list {
         min-height: 0;
-        overflow: hidden;
-        border: 1px solid #4f5664;
-        border-radius: 8px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-content: start;
+        gap: 6px;
+        overflow-y: auto;
+        border: 2px solid #050505;
+        padding: 6px;
         background: #111722;
+        scrollbar-width: none;
+      }
+
+      .list::-webkit-scrollbar {
+        display: none;
       }
 
       button.item {
         width: 100%;
-        height: 34px;
+        height: 42px;
         display: grid;
-        grid-template-columns: 24px 1fr;
-        gap: 8px;
+        grid-template-rows: 1fr auto;
+        gap: 2px;
         align-items: center;
-        border: 0;
-        border-bottom: 1px solid #29303d;
-        padding: 0 8px;
-        background: transparent;
+        justify-items: center;
+        border: 2px solid #050505;
+        padding: 5px 4px 4px;
+        background: var(--accent, #ffcc29);
         color: #f7f7f2;
-        text-align: left;
+        text-align: center;
         font: inherit;
-      }
-
-      button.item:last-child {
-        border-bottom: 0;
+        clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px));
+        box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.24), inset 3px 3px 0 rgba(255, 255, 255, 0.18);
       }
 
       button.item.active {
-        background: #263244;
+        outline: 2px solid #ffffff;
+        outline-offset: -5px;
       }
 
       .dot {
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: var(--accent, #ff3b30);
-        box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.22);
+        width: 15px;
+        height: 7px;
+        background: rgba(0, 0, 0, 0.28);
+        clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% 100%, 0 100%);
       }
 
       .name {
-        min-width: 0;
+        width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-size: 13px;
-        font-weight: 750;
+        color: #080808;
+        font-size: 10px;
+        font-weight: 900;
+        line-height: 1;
+        text-transform: uppercase;
       }
 
       footer {
@@ -158,11 +168,12 @@
 
       .action {
         height: 34px;
-        border: 0;
-        border-radius: 7px;
+        border: 2px solid #050505;
         color: #101010;
         font-size: 12px;
         font-weight: 850;
+        clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px));
+        box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.22), inset 3px 3px 0 rgba(255, 255, 255, 0.2);
       }
 
       .play {
@@ -213,41 +224,9 @@
       </footer>
     </main>
 
+    <script src="./sounds.js"></script>
     <script>
-      const sounds = [
-        { name: "Red Sus", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2021/03/red-sus.mp3" },
-        { name: "Yoooooooooo", color: "#3bd671", src: "https://instantsfun.es/wp-content/uploads/2020/08/Yoooooooooooo.mp3" },
-        { name: "Baka Mitai", color: "#f2f2f2", src: "https://instantsfun.es/wp-content/uploads/2020/08/baka-mitai.mp3" },
-        { name: "Aurora Borealis", color: "#9b5cff", src: "https://instantsfun.es/wp-content/uploads/2020/07/auroraborealis.mp3" },
-        { name: "Bruh", color: "#ffcc29", src: "https://instantsfun.es/wp-content/uploads/2020/06/Bruh.mp3" },
-        { name: "John Cena", color: "#ffcc29", src: "https://instantsfun.es/wp-content/uploads/2020/07/JohnCena.mp3" },
-        { name: "Lenny Face", color: "#ff8b2d", src: "https://instantsfun.es/wp-content/uploads/2020/05/lenny-face.mp3" },
-        { name: "Tri Poloski", color: "#4aa3ff", src: "https://instantsfun.es/wp-content/uploads/2020/06/tripoloski.mp3" },
-        { name: "USSR", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2020/06/USSR.mp3" },
-        { name: "WIDE PUTIN", color: "#ffcc29", src: "https://instantsfun.es/wp-content/uploads/2020/07/wideputin.mp3" },
-        { name: "Brooklyn99", color: "#4aa3ff", src: "https://instantsfun.es/wp-content/uploads/2020/07/Brooklyn99.mp3" },
-        { name: "Out of Touch", color: "#ff8b2d", src: "https://instantsfun.es/wp-content/uploads/2020/06/outoftouch.mp3" },
-        { name: "Dear Sister", color: "#ffcc29", src: "https://instantsfun.es/wp-content/uploads/2020/06/dearsister.mp3" },
-        { name: "Seinfeld", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2020/07/Seinfeld.mp3" },
-        { name: "Xue Hua Piao", color: "#f2f2f2", src: "https://instantsfun.es/wp-content/uploads/2020/07/xuehuapiao.mp3" },
-        { name: "To Be Continued", color: "#141414", src: "https://instantsfun.es/wp-content/uploads/2020/06/tobecontinued.mp3" },
-        { name: "Switch", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2020/06/Switch.mp3" },
-        { name: "Astronomia", color: "#141414", src: "https://instantsfun.es/wp-content/uploads/2020/04/Astronomia.mp3" },
-        { name: "I'm a Pickle", color: "#3bd671", src: "https://instantsfun.es/wp-content/uploads/2020/06/pickle.mp3" },
-        { name: "chan", color: "#4aa3ff", src: "https://instantsfun.es/wp-content/uploads/2017/09/chan.mp3" },
-        { name: "chan chan", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2017/09/chan-chan.mp3" },
-        { name: "badumtss", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2017/09/badumtss.mp3" },
-        { name: "dramatic", color: "#9b5cff", src: "https://instantsfun.es/wp-content/uploads/2017/09/dramatic.mp3" },
-        { name: "MLG", color: "#4aa3ff", src: "https://instantsfun.es/wp-content/uploads/2020/05/MLG.mp3" },
-        { name: "Roblox OOF", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2020/05/roblox-oof.mp3" },
-        { name: "Winamp", color: "#ff8b2d", src: "https://instantsfun.es/wp-content/uploads/2020/05/Winamp.mp3" },
-        { name: "Pepsiman", color: "#4aa3ff", src: "https://instantsfun.es/wp-content/uploads/2019/04/Pepsiman.mp3" },
-        { name: "like a boss", color: "#f2f2f2", src: "https://instantsfun.es/wp-content/uploads/2017/09/like-a-boss.mp3" },
-        { name: "cafe con leche", color: "#ff4b4b", src: "https://instantsfun.es/wp-content/uploads/2017/09/cafe-con-leche.mp3" },
-        { name: "careless whisper", color: "#3bd671", src: "https://instantsfun.es/wp-content/uploads/2017/09/careless-whisper.mp3" },
-        { name: "gamecube intro", color: "#4aa3ff", src: "https://instantsfun.es/wp-content/uploads/2017/09/gamecube-intro.mp3" },
-        { name: "guile theme", color: "#ff8b2d", src: "https://instantsfun.es/wp-content/uploads/2017/09/guile-theme.mp3" }
-      ];
+      const sounds = window.INSTANTSFUN_SOUNDS || [];
 
       const state = {
         index: 0,
@@ -266,34 +245,56 @@
         statusEl.textContent = text;
       }
 
-      function visibleRange() {
-        const size = 4;
-        const start = Math.max(0, Math.min(state.index - 1, sounds.length - size));
-        return sounds.slice(start, start + size).map((sound, offset) => ({ sound, index: start + offset }));
+      function buttonFor(index) {
+        return listEl.querySelector(`[data-index="${index}"]`);
       }
 
-      function render() {
-        const current = sounds[state.index];
-        titleEl.textContent = current.name;
-        subtitleEl.textContent = current.src.split("/").pop();
-        counterEl.textContent = `${state.index + 1}/${sounds.length}`;
-        heroOrbEl.style.setProperty("--accent", current.color);
+      function renderList() {
+        const fragment = document.createDocumentFragment();
 
-        listEl.innerHTML = "";
-        visibleRange().forEach(({ sound, index }) => {
+        sounds.forEach((sound, index) => {
           const button = document.createElement("button");
-          button.className = `item${index === state.index ? " active" : ""}`;
+          button.className = "item";
           button.type = "button";
+          button.dataset.index = String(index);
           button.style.setProperty("--accent", sound.color);
           button.innerHTML = `<span class="dot"></span><span class="name"></span>`;
           button.querySelector(".name").textContent = sound.name;
           button.addEventListener("click", () => {
             state.index = index;
-            render();
+            updateSelection(false);
             playSelected();
           });
-          listEl.appendChild(button);
+          fragment.appendChild(button);
         });
+
+        listEl.innerHTML = "";
+        listEl.appendChild(fragment);
+      }
+
+      function updateSelection(shouldScroll = true) {
+        if (!sounds.length) {
+          titleEl.textContent = "Sin botones";
+          subtitleEl.textContent = "no hay sonidos cargados";
+          counterEl.textContent = "0/0";
+          return;
+        }
+
+        const current = sounds[state.index];
+        titleEl.textContent = current.name;
+        subtitleEl.textContent = `${sounds.length} botones cargados`;
+        counterEl.textContent = `${state.index + 1}/${sounds.length}`;
+        heroOrbEl.style.setProperty("--accent", current.color);
+
+        listEl.querySelectorAll(".item.active").forEach((button) => {
+          button.classList.remove("active");
+        });
+
+        const activeButton = buttonFor(state.index);
+        if (activeButton) {
+          activeButton.classList.add("active");
+          if (shouldScroll) activeButton.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
       }
 
       function stopAll(reason = "parado") {
@@ -303,6 +304,8 @@
       }
 
       function playSelected() {
+        if (!sounds.length) return;
+
         const sound = sounds[state.index];
         stopAll("cargando...");
         state.audio = new Audio(sound.src);
@@ -316,16 +319,20 @@
       }
 
       function move(offset) {
+        if (!sounds.length) return;
+
         state.index = (state.index + offset + sounds.length) % sounds.length;
-        render();
+        updateSelection();
         setStatus("seleccionado");
       }
 
       function playRandom() {
+        if (!sounds.length) return;
+
         let next = Math.floor(Math.random() * sounds.length);
         if (sounds.length > 1 && next === state.index) next = (next + 1) % sounds.length;
         state.index = next;
-        render();
+        updateSelection();
         playSelected();
       }
 
@@ -366,7 +373,8 @@
         if (event.key.toLowerCase() === "r") playRandom();
       });
 
-      render();
+      renderList();
+      updateSelection(false);
       startAccelerometer();
     </script>
   </body>

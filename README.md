@@ -6,6 +6,7 @@ Dos apps de prueba para validar el SDK de Rabbit R1 Creations en hardware real.
 
 - `apps/fortune-wheel/`: ruleta absurda con scroll wheel, PTT, acelerometro, almacenamiento local y respuesta hablada opcional.
 - `apps/excuse-bot/`: generador de excusas tontas usando el LLM del R1, PTT, scroll wheel, almacenamiento y TTS.
+- `apps/instantsfun-r1/`: mini soundboard de Instantsfun con listado, reproduccion directa de MP3, shake para parar y boton lateral random.
 
 ## Desarrollo local
 
@@ -19,6 +20,7 @@ Despues abre:
 
 - `http://localhost:8080/apps/fortune-wheel/`
 - `http://localhost:8080/apps/excuse-bot/`
+- `http://localhost:8080/apps/instantsfun-r1/`
 
 En navegador normal veras fallbacks porque las APIs `PluginMessageHandler`, `creationStorage` y `creationSensors` solo existen dentro del R1.
 
@@ -46,6 +48,7 @@ Si publicas en GitHub Pages como proyecto:
 
 - `https://kalvinone2.github.io/rabbitsdk/apps/fortune-wheel/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/excuse-bot/`
+- `https://kalvinone2.github.io/rabbitsdk/apps/instantsfun-r1/`
 
 ## Generador QR
 

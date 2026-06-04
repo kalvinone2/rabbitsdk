@@ -7,6 +7,7 @@ Dos apps de prueba para validar el SDK de Rabbit R1 Creations en hardware real.
 - `apps/fortune-wheel/`: ruleta absurda con scroll wheel, PTT, acelerometro, almacenamiento local y respuesta hablada opcional.
 - `apps/excuse-bot/`: generador de excusas tontas usando el LLM del R1, PTT, scroll wheel, almacenamiento y TTS.
 - `apps/instantsfun-r1/`: mini soundboard de Instantsfun con 424 botones precargados, rejilla 2 columnas, reproduccion directa de MP3, shake para parar y boton lateral random.
+- `apps/n8n-chat-r1/`: chat ligero para conectar Rabbit R1 a n8n mediante un QR privado con endpoint y token.
 
 ## Desarrollo local
 
@@ -21,6 +22,7 @@ Despues abre:
 - `http://localhost:8080/apps/fortune-wheel/`
 - `http://localhost:8080/apps/excuse-bot/`
 - `http://localhost:8080/apps/instantsfun-r1/`
+- `http://localhost:8080/apps/n8n-chat-r1/`
 
 En navegador normal veras fallbacks porque las APIs `PluginMessageHandler`, `creationStorage` y `creationSensors` solo existen dentro del R1.
 
@@ -51,6 +53,19 @@ Si publicas en GitHub Pages como proyecto:
 - `https://kalvinone2.github.io/rabbitsdk/apps/fortune-wheel/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/excuse-bot/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/instantsfun-r1/`
+- `https://kalvinone2.github.io/rabbitsdk/apps/n8n-chat-r1/`
+
+## Configuracion privada de n8n Chat R1
+
+La app `n8n-chat-r1` es publica, pero no contiene secretos. En el primer arranque escanea un QR privado con:
+
+```json
+{"endpoint":"https://tu-n8n.com/webhook/rabbit-chat","token":"r1_token_privado","name":"n8n personal"}
+```
+
+El token se guarda en `creationStorage.secure` cuando esta disponible, con fallback a `localStorage` en navegador normal. Las peticiones a n8n se envian como `application/x-www-form-urlencoded` con un campo `payload` JSON para reducir problemas de CORS.
+
+En n8n, si quieres revocar un token, responde con `{"revoked":true}`, `{"status":"revoked"}` o HTTP `401/403`; la app borrara la configuracion local y volvera al setup.
 
 ## Generador QR
 

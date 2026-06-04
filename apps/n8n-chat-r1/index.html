@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=240, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>n8n Chat R1</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 240px;
+        height: 282px;
+        margin: 0;
+        overflow: hidden;
+        background: #0f1411;
+        color: #f4f2e9;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        border: 4px solid #2de38c;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      main {
+        width: 100%;
+        height: 100%;
+        padding: 8px;
+      }
+
+      .view {
+        display: none;
+        width: 100%;
+        height: 100%;
+      }
+
+      .view.active {
+        display: grid;
+      }
+
+      #setupView {
+        grid-template-rows: auto auto 1fr auto;
+        gap: 7px;
+      }
+
+      #chatView {
+        grid-template-rows: auto 1fr auto auto;
+        gap: 6px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 17px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .badge {
+        min-width: 0;
+        max-width: 92px;
+        height: 22px;
+        padding: 0 6px;
+        border: 1px solid #2c5d44;
+        border-radius: 5px;
+        display: grid;
+        place-items: center;
+        color: #a8d9bf;
+        font-size: 10px;
+        font-weight: 800;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .copy {
+        margin: 0;
+        color: #a8d9bf;
+        font-size: 12px;
+        line-height: 1.2;
+      }
+
+      .panel {
+        min-height: 0;
+        border: 1px solid #2c5d44;
+        border-radius: 7px;
+        background: #17221c;
+        overflow: hidden;
+      }
+
+      .scanner {
+        position: relative;
+        display: grid;
+        place-items: center;
+      }
+
+      video {
+        display: none;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .scanner.active video {
+        display: block;
+      }
+
+      .scanIdle {
+        padding: 14px;
+        text-align: center;
+        font-size: 13px;
+        line-height: 1.2;
+        color: #f4f2e9;
+      }
+
+      .scanner.active .scanIdle {
+        display: none;
+      }
+
+      .scanBox {
+        position: absolute;
+        width: 92px;
+        height: 92px;
+        border: 3px solid #2de38c;
+        box-shadow: 0 0 0 999px rgba(15, 20, 17, 0.42);
+        display: none;
+      }
+
+      .scanner.active .scanBox {
+        display: block;
+      }
+
+      textarea,
+      input {
+        width: 100%;
+        border: 1px solid #2c5d44;
+        border-radius: 6px;
+        background: #101812;
+        color: #f4f2e9;
+        outline: none;
+      }
+
+      textarea {
+        height: 48px;
+        padding: 7px;
+        resize: none;
+        font-size: 11px;
+        line-height: 1.15;
+      }
+
+      input {
+        height: 34px;
+        padding: 0 8px;
+        font-size: 13px;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      button {
+        height: 34px;
+        border: 0;
+        border-radius: 6px;
+        background: #2de38c;
+        color: #07110c;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      button.secondary {
+        background: #f7c948;
+      }
+
+      button.danger {
+        background: #ff6b6b;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+      }
+
+      .messages {
+        min-height: 0;
+        padding: 6px;
+        overflow-y: auto;
+      }
+
+      .msg {
+        margin: 0 0 5px;
+        padding: 6px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.18;
+        word-break: break-word;
+      }
+
+      .msg.user {
+        background: #f7c948;
+        color: #101812;
+      }
+
+      .msg.bot {
+        background: #213229;
+        color: #f4f2e9;
+      }
+
+      .msg.system {
+        border: 1px solid #2c5d44;
+        color: #a8d9bf;
+      }
+
+      .status {
+        min-height: 13px;
+        color: #a8d9bf;
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .tiny {
+        height: 24px;
+        padding: 0 6px;
+        font-size: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="view active" id="setupView">
+        <header>
+          <h1>n8n Chat</h1>
+          <span class="badge">setup</span>
+        </header>
+
+        <p class="copy">Escanea un QR privado con endpoint y token.</p>
+
+        <section class="panel scanner" id="scanner">
+          <video id="video" muted playsinline></video>
+          <div class="scanIdle">QR JSON<br />o pega abajo</div>
+          <div class="scanBox"></div>
+        </section>
+
+        <footer>
+          <textarea id="configInput" spellcheck="false" placeholder='{"endpoint":"https://...","token":"r1_..."}'></textarea>
+          <div class="actions">
+            <button id="scanBtn">Escanear</button>
+            <button class="secondary" id="saveConfigBtn">Guardar</button>
+          </div>
+          <div class="status" id="setupStatus">sin configurar</div>
+        </footer>
+      </section>
+
+      <section class="view" id="chatView">
+        <header>
+          <h1>n8n Chat</h1>
+          <span class="badge" id="profileName">conectado</span>
+        </header>
+
+        <section class="panel messages" id="messages"></section>
+
+        <input id="messageInput" type="text" autocomplete="off" placeholder="Mensaje..." />
+
+        <footer>
+          <div class="actions">
+            <button id="sendBtn">Enviar</button>
+            <button class="danger" id="resetBtn">Reset</button>
+          </div>
+          <div class="status" id="chatStatus">listo</div>
+        </footer>
+      </section>
+    </main>
+
+    <script>
+      const CONFIG_KEY = "n8n_chat_r1_config";
+      const SESSION_KEY = "n8n_chat_r1_session";
+      const HISTORY_KEY = "n8n_chat_r1_history";
+
+      const state = {
+        config: null,
+        history: [],
+        sessionId: "",
+        stream: null,
+        scanning: false
+      };
+
+      const setupView = document.getElementById("setupView");
+      const chatView = document.getElementById("chatView");
+      const scannerEl = document.getElementById("scanner");
+      const videoEl = document.getElementById("video");
+      const configInput = document.getElementById("configInput");
+      const setupStatus = document.getElementById("setupStatus");
+      const chatStatus = document.getElementById("chatStatus");
+      const messagesEl = document.getElementById("messages");
+      const messageInput = document.getElementById("messageInput");
+      const profileName = document.getElementById("profileName");
+      const sendBtn = document.getElementById("sendBtn");
+
+      function encode(value) {
+        return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+      }
+
+      function decode(value) {
+        return JSON.parse(decodeURIComponent(escape(atob(value))));
+      }
+
+      async function setStored(key, value, secure = false) {
+        const encoded = encode(value);
+
+        try {
+          if (window.creationStorage) {
+            const area = secure && window.creationStorage.secure ? window.creationStorage.secure : window.creationStorage.plain;
+            await area.setItem(key, encoded);
+            return;
+          }
+        } catch (error) {
+          console.warn("creationStorage set failed", error);
+        }
+
+        localStorage.setItem(key, encoded);
+      }
+
+      async function getStored(key, fallback = null, secure = false) {
+        try {
+          if (window.creationStorage) {
+            const area = secure && window.creationStorage.secure ? window.creationStorage.secure : window.creationStorage.plain;
+            const saved = await area.getItem(key);
+            return saved ? decode(saved) : fallback;
+          }
+        } catch (error) {
+          console.warn("creationStorage get failed", error);
+        }
+
+        const saved = localStorage.getItem(key);
+        return saved ? decode(saved) : fallback;
+      }
+
+      async function removeStored(key, secure = false) {
+        try {
+          if (window.creationStorage) {
+            const area = secure && window.creationStorage.secure ? window.creationStorage.secure : window.creationStorage.plain;
+            await area.removeItem(key);
+          }
+        } catch (error) {
+          console.warn("creationStorage remove failed", error);
+        }
+
+        localStorage.removeItem(key);
+      }
+
+      function setSetupStatus(text) {
+        setupStatus.textContent = text;
+      }
+
+      function setChatStatus(text) {
+        chatStatus.textContent = text;
+      }
+
+      function ensureSessionId() {
+        if (!state.sessionId) {
+          state.sessionId = `r1-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+          setStored(SESSION_KEY, state.sessionId);
+        }
+      }
+
+      function showSetup() {
+        setupView.classList.add("active");
+        chatView.classList.remove("active");
+      }
+
+      function showChat() {
+        setupView.classList.remove("active");
+        chatView.classList.add("active");
+        profileName.textContent = state.config.name || "n8n";
+        renderMessages();
+        messageInput.focus();
+      }
+
+      function parseConfig(raw) {
+        const text = String(raw || "").trim();
+        if (!text) throw new Error("QR vacio");
+
+        let data;
+        if (text.startsWith("http")) {
+          const url = new URL(text);
+          data = {
+            endpoint: url.searchParams.get("endpoint") || url.searchParams.get("url") || "",
+            token: url.searchParams.get("token") || url.searchParams.get("key") || "",
+            name: url.searchParams.get("name") || "n8n"
+          };
+        } else {
+          data = JSON.parse(text);
+        }
+
+        const endpoint = String(data.endpoint || data.url || "").trim();
+        const token = String(data.token || data.apiKey || data.key || "").trim();
+        const name = String(data.name || "n8n").trim().slice(0, 24);
+
+        if (!endpoint) throw new Error("falta endpoint");
+        if (!token) throw new Error("falta token");
+
+        const url = new URL(endpoint);
+        const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+        if (url.protocol !== "https:" && !isLocal) throw new Error("endpoint debe ser https");
+
+        return {
+          endpoint: url.toString(),
+          token,
+          name,
+          v: Number(data.v || 1)
+        };
+      }
+
+      async function saveConfigFromText(raw) {
+        try {
+          const config = parseConfig(raw);
+          state.config = config;
+          await setStored(CONFIG_KEY, config, true);
+          setSetupStatus("config guardada");
+          await stopScanner();
+          showChat();
+        } catch (error) {
+          setSetupStatus(error.message || "QR invalido");
+        }
+      }
+
+      async function stopScanner() {
+        state.scanning = false;
+        scannerEl.classList.remove("active");
+
+        if (state.stream) {
+          state.stream.getTracks().forEach((track) => track.stop());
+          state.stream = null;
+        }
+
+        videoEl.srcObject = null;
+      }
+
+      async function scanFrame(detector) {
+        if (!state.scanning) return;
+
+        try {
+          const codes = await detector.detect(videoEl);
+          if (codes.length) {
+            const value = codes[0].rawValue;
+            configInput.value = value;
+            await saveConfigFromText(value);
+            return;
+          }
+        } catch (error) {
+          console.warn("scan failed", error);
+        }
+
+        requestAnimationFrame(() => scanFrame(detector));
+      }
+
+      async function startScanner() {
+        if (!("BarcodeDetector" in window)) {
+          setSetupStatus("QR no soportado, pega JSON");
+          return;
+        }
+
+        try {
+          state.stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false
+          });
+          videoEl.srcObject = state.stream;
+          await videoEl.play();
+          state.scanning = true;
+          scannerEl.classList.add("active");
+          setSetupStatus("apunta al QR");
+          const detector = new BarcodeDetector({ formats: ["qr_code"] });
+          scanFrame(detector);
+        } catch (error) {
+          setSetupStatus("camara no disponible");
+        }
+      }
+
+      function addMessage(role, text) {
+        state.history.push({ role, text: String(text || "").slice(0, 700) });
+        state.history = state.history.slice(-8);
+        setStored(HISTORY_KEY, state.history);
+        renderMessages();
+      }
+
+      function renderMessages() {
+        messagesEl.innerHTML = "";
+
+        const items = state.history.length
+          ? state.history
+          : [{ role: "system", text: "Listo. Envia un mensaje de prueba a n8n." }];
+
+        for (const item of items) {
+          const el = document.createElement("p");
+          el.className = `msg ${item.role}`;
+          el.textContent = item.text;
+          messagesEl.appendChild(el);
+        }
+
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function isRevoked(payload) {
+        if (!payload) return false;
+        const text = typeof payload === "string" ? payload.toLowerCase() : "";
+        return Boolean(
+          payload.revoked === true ||
+          payload.status === "revoked" ||
+          payload.error === "revoked" ||
+          text.includes("revoked")
+        );
+      }
+
+      function extractReply(payload) {
+        if (typeof payload === "string") return payload;
+        return payload.reply || payload.output || payload.text || payload.message || JSON.stringify(payload);
+      }
+
+      async function revokeLocalConfig() {
+        await removeStored(CONFIG_KEY, true);
+        state.config = null;
+        state.history = [];
+        await setStored(HISTORY_KEY, state.history);
+        setSetupStatus("token revocado");
+        showSetup();
+      }
+
+      async function sendMessage(text) {
+        if (!state.config) {
+          showSetup();
+          return;
+        }
+
+        const message = String(text || "").trim();
+        if (!message) return;
+
+        ensureSessionId();
+        addMessage("user", message);
+        messageInput.value = "";
+        sendBtn.disabled = true;
+        setChatStatus("enviando...");
+
+        const payload = {
+          token: state.config.token,
+          message,
+          sessionId: state.sessionId,
+          source: "rabbit-r1-creation",
+          sentAt: new Date().toISOString()
+        };
+
+        try {
+          const response = await fetch(state.config.endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: new URLSearchParams({ payload: JSON.stringify(payload) })
+          });
+
+          const raw = await response.text();
+          let data = raw;
+
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (error) {
+            data = raw || { reply: `HTTP ${response.status}` };
+          }
+
+          if (response.status === 401 || response.status === 403 || isRevoked(data)) {
+            addMessage("system", "Token revocado. Reconfigura la app.");
+            await revokeLocalConfig();
+            return;
+          }
+
+          if (!response.ok) {
+            addMessage("system", `n8n respondio HTTP ${response.status}`);
+            setChatStatus(`HTTP ${response.status}`);
+            return;
+          }
+
+          addMessage("bot", extractReply(data));
+          setChatStatus("respuesta lista");
+        } catch (error) {
+          addMessage("system", "No se pudo conectar con n8n.");
+          setChatStatus("fallo de red");
+        } finally {
+          sendBtn.disabled = false;
+        }
+      }
+
+      async function resetConfig() {
+        await revokeLocalConfig();
+        configInput.value = "";
+      }
+
+      document.getElementById("scanBtn").addEventListener("click", () => {
+        if (state.scanning) {
+          stopScanner();
+          setSetupStatus("scanner parado");
+        } else {
+          startScanner();
+        }
+      });
+
+      document.getElementById("saveConfigBtn").addEventListener("click", () => saveConfigFromText(configInput.value));
+      document.getElementById("sendBtn").addEventListener("click", () => sendMessage(messageInput.value));
+      document.getElementById("resetBtn").addEventListener("click", resetConfig);
+
+      messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          sendMessage(messageInput.value);
+        }
+      });
+
+      window.addEventListener("sideClick", () => sendMessage(messageInput.value || "ping"));
+      window.addEventListener("longPressStart", resetConfig);
+
+      async function boot() {
+        state.config = await getStored(CONFIG_KEY, null, true);
+        state.history = await getStored(HISTORY_KEY, []);
+        state.sessionId = await getStored(SESSION_KEY, "");
+
+        if (state.config) {
+          showChat();
+          setChatStatus("config cargada");
+        } else {
+          showSetup();
+        }
+      }
+
+      boot();
+    </script>
+  </body>
+</html>

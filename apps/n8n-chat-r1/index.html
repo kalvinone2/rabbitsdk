@@ -175,6 +175,10 @@
         gap: 6px;
       }
 
+      .actions.three {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
       button {
         height: 34px;
         border: 0;
@@ -225,6 +229,11 @@
       .msg.system {
         border: 1px solid #2c5d44;
         color: #a8d9bf;
+      }
+
+      .msg.voice {
+        background: #2de38c;
+        color: #07110c;
       }
 
       .status {
@@ -280,7 +289,8 @@
         <input id="messageInput" type="text" autocomplete="off" placeholder="Mensaje..." />
 
         <footer>
-          <div class="actions">
+          <div class="actions three">
+            <button class="secondary" id="voiceBtn">Voz</button>
             <button id="sendBtn">Enviar</button>
             <button class="danger" id="resetBtn">Reset</button>
           </div>
@@ -299,7 +309,12 @@
         history: [],
         sessionId: "",
         stream: null,
-        scanning: false
+        scanning: false,
+        recognition: null,
+        listening: false,
+        finalTranscript: "",
+        interimTranscript: "",
+        lastReply: ""
       };
 
       const setupView = document.getElementById("setupView");
@@ -313,6 +328,7 @@
       const messageInput = document.getElementById("messageInput");
       const profileName = document.getElementById("profileName");
       const sendBtn = document.getElementById("sendBtn");
+      const voiceBtn = document.getElementById("voiceBtn");
 
       function encode(value) {
         return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
@@ -404,7 +420,9 @@
           data = {
             endpoint: url.searchParams.get("endpoint") || url.searchParams.get("url") || "",
             token: url.searchParams.get("token") || url.searchParams.get("key") || "",
-            name: url.searchParams.get("name") || "n8n"
+            name: url.searchParams.get("name") || "n8n",
+            speak: url.searchParams.get("speak") !== "false",
+            lang: url.searchParams.get("lang") || "es-ES"
           };
         } else {
           data = JSON.parse(text);
@@ -425,6 +443,8 @@
           endpoint: url.toString(),
           token,
           name,
+          speak: data.speak !== false,
+          lang: String(data.lang || "es-ES").trim() || "es-ES",
           v: Number(data.v || 1)
         };
       }
@@ -507,7 +527,7 @@
 
         const items = state.history.length
           ? state.history
-          : [{ role: "system", text: "Listo. Envia un mensaje de prueba a n8n." }];
+          : [{ role: "system", text: "Mantén PTT para dictar o escribe un mensaje." }];
 
         for (const item of items) {
           const el = document.createElement("p");
@@ -535,6 +555,112 @@
         return payload.reply || payload.output || payload.text || payload.message || JSON.stringify(payload);
       }
 
+      function speakText(text) {
+        const clean = String(text || "").trim();
+        if (!clean || !state.config || state.config.speak === false) return;
+
+        if (typeof PluginMessageHandler !== "undefined") {
+          PluginMessageHandler.postMessage(JSON.stringify({
+            message: `Lee en voz alta, de forma breve y clara: ${clean}`,
+            useLLM: true,
+            wantsR1Response: true,
+            wantsJournalEntry: false
+          }));
+          return;
+        }
+
+        if ("speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(new SpeechSynthesisUtterance(clean));
+        }
+      }
+
+      function getSpeechRecognition() {
+        return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+      }
+
+      function updateVoiceDraft() {
+        const text = [state.finalTranscript, state.interimTranscript].filter(Boolean).join(" ").trim();
+        if (text) messageInput.value = text;
+      }
+
+      function startVoice() {
+        if (state.listening) return;
+
+        const SpeechRecognition = getSpeechRecognition();
+        if (!SpeechRecognition) {
+          setChatStatus("STT no disponible");
+          addMessage("system", "Dictado no soportado aqui. Escribe el texto.");
+          return;
+        }
+
+        state.finalTranscript = "";
+        state.interimTranscript = "";
+        state.recognition = new SpeechRecognition();
+        state.recognition.lang = state.config.lang || "es-ES";
+        state.recognition.continuous = true;
+        state.recognition.interimResults = true;
+
+        state.recognition.onresult = (event) => {
+          let interim = "";
+
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const result = event.results[i];
+            const text = result[0] && result[0].transcript ? result[0].transcript.trim() : "";
+            if (!text) continue;
+
+            if (result.isFinal) {
+              state.finalTranscript = `${state.finalTranscript} ${text}`.trim();
+            } else {
+              interim = `${interim} ${text}`.trim();
+            }
+          }
+
+          state.interimTranscript = interim;
+          updateVoiceDraft();
+        };
+
+        state.recognition.onerror = (event) => {
+          setChatStatus(event.error ? `voz: ${event.error}` : "error voz");
+          state.listening = false;
+          voiceBtn.textContent = "Voz";
+        };
+
+        state.recognition.onend = () => {
+          state.listening = false;
+          voiceBtn.textContent = "Voz";
+          const text = messageInput.value.trim();
+          if (text) {
+            sendMessage(text, "voice");
+          } else {
+            setChatStatus("sin texto");
+          }
+        };
+
+        try {
+          state.recognition.start();
+          state.listening = true;
+          voiceBtn.textContent = "Stop";
+          setChatStatus("escuchando...");
+        } catch (error) {
+          setChatStatus("no inicia voz");
+        }
+      }
+
+      function stopVoice() {
+        if (!state.recognition || !state.listening) return;
+        setChatStatus("transcribiendo...");
+        state.recognition.stop();
+      }
+
+      function toggleVoice() {
+        if (state.listening) {
+          stopVoice();
+        } else {
+          startVoice();
+        }
+      }
+
       async function revokeLocalConfig() {
         await removeStored(CONFIG_KEY, true);
         state.config = null;
@@ -544,7 +670,7 @@
         showSetup();
       }
 
-      async function sendMessage(text) {
+      async function sendMessage(text, inputMode = "text") {
         if (!state.config) {
           showSetup();
           return;
@@ -554,7 +680,7 @@
         if (!message) return;
 
         ensureSessionId();
-        addMessage("user", message);
+        addMessage(inputMode === "voice" ? "voice" : "user", message);
         messageInput.value = "";
         sendBtn.disabled = true;
         setChatStatus("enviando...");
@@ -562,6 +688,7 @@
         const payload = {
           token: state.config.token,
           message,
+          inputMode,
           sessionId: state.sessionId,
           source: "rabbit-r1-creation",
           sentAt: new Date().toISOString()
@@ -595,7 +722,10 @@
             return;
           }
 
-          addMessage("bot", extractReply(data));
+          const reply = extractReply(data);
+          state.lastReply = reply;
+          addMessage("bot", reply);
+          speakText(reply);
           setChatStatus("respuesta lista");
         } catch (error) {
           addMessage("system", "No se pudo conectar con n8n.");
@@ -621,6 +751,7 @@
 
       document.getElementById("saveConfigBtn").addEventListener("click", () => saveConfigFromText(configInput.value));
       document.getElementById("sendBtn").addEventListener("click", () => sendMessage(messageInput.value));
+      document.getElementById("voiceBtn").addEventListener("click", toggleVoice);
       document.getElementById("resetBtn").addEventListener("click", resetConfig);
 
       messageInput.addEventListener("keydown", (event) => {
@@ -631,7 +762,8 @@
       });
 
       window.addEventListener("sideClick", () => sendMessage(messageInput.value || "ping"));
-      window.addEventListener("longPressStart", resetConfig);
+      window.addEventListener("longPressStart", startVoice);
+      window.addEventListener("longPressEnd", stopVoice);
 
       async function boot() {
         state.config = await getStored(CONFIG_KEY, null, true);

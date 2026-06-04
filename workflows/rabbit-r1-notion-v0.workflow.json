@@ -1,0 +1,277 @@
+{
+  "name": "Rabbit R1 Notion Capture V0",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup\n\n1. Import this workflow in n8n.\n2. Replace `REPLACE_WITH_PRIVATE_TOKEN` in the Code node with the token used in the Rabbit setup QR.\n3. Configure the Notion credentials in the Notion node.\n4. Replace `REPLACE_WITH_NOTION_DATABASE_ID` with your Notion database ID.\n5. Recommended Notion columns: Name (title), Text (rich text), Source (select), Session (rich text), Input Mode (select), Created (date).\n6. Activate the workflow and use the production webhook URL: `/webhook/rabbit-r1-notion-v0`."
+      },
+      "id": "ea98f6e2-e0f4-4f2f-9d3e-9a6d9b773f79",
+      "name": "Setup note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rabbit-r1-notion-v0",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "90bd8d6b-9cf2-4a4a-b1a2-f8306fdb9398",
+      "name": "Rabbit R1 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -540,
+        120
+      ],
+      "webhookId": "rabbit-r1-notion-v0"
+    },
+    {
+      "parameters": {
+        "jsCode": "const expectedToken = 'REPLACE_WITH_PRIVATE_TOKEN';\n\nfunction parsePayload(input) {\n  const direct = input.payload ?? input.body?.payload ?? input.body ?? input;\n\n  if (typeof direct === 'string') {\n    try {\n      return JSON.parse(direct);\n    } catch (error) {\n      return { message: direct };\n    }\n  }\n\n  return direct || {};\n}\n\nconst payload = parsePayload($json);\nconst token = String(payload.token || payload.apiKey || payload.key || '');\nconst valid = expectedToken !== 'REPLACE_WITH_PRIVATE_TOKEN' && token === expectedToken;\nconst message = String(payload.message || payload.text || payload.transcript || '').trim();\nconst now = new Date().toISOString();\n\nreturn [{\n  json: {\n    valid,\n    revoked: !valid,\n    status: valid ? 'ok' : 'revoked',\n    reply: valid ? 'Guardado en Notion.' : 'Token revocado o invalido.',\n    message,\n    title: message ? message.slice(0, 80) : 'Rabbit R1 note',\n    inputMode: String(payload.inputMode || 'text'),\n    sessionId: String(payload.sessionId || ''),\n    source: String(payload.source || 'rabbit-r1-creation'),\n    sentAt: payload.sentAt || now,\n    receivedAt: now\n  }\n}];"
+      },
+      "id": "0c53caf3-dbb8-4111-9a5e-d3bfce7ca338",
+      "name": "Validate token + map fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4ed330f7-c09f-4f67-9859-f5893e79a7f2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "804ed224-f9f3-48de-b7c6-1ea2845d958f",
+      "name": "Token valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -60,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "title": "={{ $json.title }}",
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_NOTION_DATABASE_ID"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.title }}"
+            },
+            {
+              "key": "Text|rich_text",
+              "textContent": "={{ $json.message }}"
+            },
+            {
+              "key": "Source|select",
+              "selectValue": "Rabbit R1"
+            },
+            {
+              "key": "Session|rich_text",
+              "textContent": "={{ $json.sessionId }}"
+            },
+            {
+              "key": "Input Mode|select",
+              "selectValue": "={{ $json.inputMode }}"
+            },
+            {
+              "key": "Created|date",
+              "date": "={{ $json.sentAt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dbcaee5d-ea46-4e43-b59d-74243783ba84",
+      "name": "Create Notion row",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        200,
+        20
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ok: true,\n    status: 'ok',\n    reply: 'Guardado en Notion.',\n    notionPageId: $json.id || ''\n  }\n}];"
+      },
+      "id": "5a23cf31-a74e-41c5-9c32-6207b2bb7af3",
+      "name": "Build OK response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "4688cb98-49f6-42c5-a84c-8ee2bca2606d",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ok: false,\n    revoked: true,\n    status: 'revoked',\n    reply: 'Token revocado o invalido.'\n  }\n}];"
+      },
+      "id": "de8a7a05-931e-45cb-8cef-4a5b220d95b5",
+      "name": "Build Revoked response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "4f8d0560-18ef-4599-861e-b4fbbdb3081c",
+      "name": "Respond Revoked",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        220
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Rabbit R1 Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate token + map fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate token + map fields": {
+      "main": [
+        [
+          {
+            "node": "Token valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token valid?": {
+      "main": [
+        [
+          {
+            "node": "Create Notion row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Revoked response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Notion row": {
+      "main": [
+        [
+          {
+            "node": "Build OK response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build OK response": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Revoked response": {
+      "main": [
+        [
+          {
+            "node": "Respond Revoked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3f0f2b22-81a7-4f52-9b93-170687c499fd",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

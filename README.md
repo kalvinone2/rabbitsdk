@@ -60,12 +60,14 @@ Si publicas en GitHub Pages como proyecto:
 La app `n8n-chat-r1` es publica, pero no contiene secretos. En el primer arranque escanea un QR privado con:
 
 ```json
-{"endpoint":"https://tu-n8n.com/webhook/rabbit-chat","token":"r1_token_privado","name":"n8n personal"}
+{"endpoint":"https://tu-n8n.com/webhook/rabbit-r1-notion-v0","token":"r1_token_privado","name":"n8n personal","lang":"es-ES","speak":true}
 ```
 
 El token se guarda en `creationStorage.secure` cuando esta disponible, con fallback a `localStorage` en navegador normal. Las peticiones a n8n se envian como `application/x-www-form-urlencoded` con un campo `payload` JSON para reducir problemas de CORS.
 
 En n8n, si quieres revocar un token, responde con `{"revoked":true}`, `{"status":"revoked"}` o HTTP `401/403`; la app borrara la configuracion local y volvera al setup.
+
+Hay un workflow importable de prueba en `workflows/rabbit-r1-notion-v0.workflow.json`. Recibe texto desde el Rabbit, valida token, crea una fila en una base de datos de Notion y responde a la app.
 
 ## Generador QR
 

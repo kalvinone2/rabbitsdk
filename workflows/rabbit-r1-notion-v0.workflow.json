@@ -80,7 +80,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const openAiApiKey = 'REPLACE_WITH_OPENAI_API_KEY';\nconst allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal'];\nconst message = String($json.message || '').trim();\nconst imageBase64 = String($json.imageBase64 || '').replace(/^data:.*?;base64,/, '').trim();\nconst imageMimeType = String($json.imageMimeType || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';\n\nfunction withoutMedia(input) {\n  const { audioBase64, imageBase64, ...rest } = input;\n  return rest;\n}\n\nfunction cleanArea(value) {\n  const normalized = String(value || '').trim();\n  return allowedAreas.includes(normalized) ? normalized : 'Personal';\n}\n\nfunction fallback(reason = '') {\n  const title = message ? message.slice(0, 80) : imageBase64 ? 'Foto Mind Drop' : 'Mind Drop';\n  const transcriptionNote = $json.transcriptionError ? `Error de transcripcion: ${$json.transcriptionError}` : '';\n  return [{\n    json: {\n      ...withoutMedia($json),\n      titulo: title,\n      area: 'Personal',\n      observaciones: message || transcriptionNote || (imageBase64 ? 'Foto recibida sin analisis.' : 'Sin mensaje recibido.'),\n      aiModel: 'fallback',\n      aiFallbackReason: reason || $json.transcriptionError || ''\n    }\n  }];\n}\n\nif (!message && !imageBase64) return fallback('empty_message');\nif (!openAiApiKey || openAiApiKey.startsWith('REPLACE_WITH_')) return fallback('missing_openai_key');\n\nconst system = [\n  'Eres un clasificador de capturas personales llamado Mind Drop.',\n  'Recibes una nota breve o una foto en espanol y devuelves solo JSON valido.',\n  'Campos obligatorios: titulo, area, observaciones.',\n  `area debe ser exactamente una de: ${allowedAreas.join(', ')}.`,\n  'titulo: maximo 80 caracteres, claro y util como titulo de pagina.',\n  'observaciones: si hay texto, reescribelo de forma clara y accionable en 1-3 frases. Si hay foto, describe lo importante y por que podria guardarse.',\n  'Si hay duda entre areas, usa Personal. Si es una idea suelta, usa Ideas.'\n].join(' ');\n\nconst userContent = imageBase64\n  ? [\n      { type: 'text', text: message || 'Analiza esta foto para guardarla como Mind Drop. Devuelve titulo, area y observaciones.' },\n      { type: 'image_url', image_url: { url: `data:${imageMimeType};base64,${imageBase64}` } }\n    ]\n  : message;\n\ntry {\n  const data = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      'Authorization': `Bearer ${openAiApiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: {\n      model: imageBase64 ? 'gpt-4.1-mini' : 'gpt-4.1-nano',\n      temperature: 0.1,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: system },\n        { role: 'user', content: userContent }\n      ]\n    },\n    json: true\n  });\n\n  const content = data.choices?.[0]?.message?.content || '{}';\n  const parsed = JSON.parse(content);\n  const titulo = String(parsed.titulo || parsed.title || message).trim().slice(0, 80) || 'Mind Drop';\n  const area = cleanArea(parsed.area);\n  const observaciones = String(parsed.observaciones || parsed.notes || parsed.observation || message).trim();\n\n  return [{\n    json: {\n      ...withoutMedia($json),\n      titulo,\n      area,\n      observaciones,\n      aiModel: imageBase64 ? 'gpt-4.1-mini' : 'gpt-4.1-nano'\n    }\n  }];\n} catch (error) {\n  return fallback(error.message || 'openai_error');\n}"
+        "jsCode": "const openAiApiKey = 'REPLACE_WITH_OPENAI_API_KEY';\nconst allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal', 'Foto'];\nconst message = String($json.message || '').trim();\nconst imageBase64 = String($json.imageBase64 || '').replace(/^data:.*?;base64,/, '').trim();\nconst imageMimeType = String($json.imageMimeType || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';\n\nfunction withoutMedia(input) {\n  const { audioBase64, imageBase64, ...rest } = input;\n  return rest;\n}\n\nfunction cleanArea(value) {\n  const normalized = String(value || '').trim();\n  return allowedAreas.includes(normalized) ? normalized : 'Personal';\n}\n\nfunction fallback(reason = '') {\n  const title = message ? message.slice(0, 80) : imageBase64 ? 'Foto Mind Drop' : 'Mind Drop';\n  const transcriptionNote = $json.transcriptionError ? `Error de transcripcion: ${$json.transcriptionError}` : '';\n  return [{\n    json: {\n      ...withoutMedia($json),\n      titulo: title,\n      area: imageBase64 ? 'Foto' : 'Personal',\n      observaciones: message || transcriptionNote || (imageBase64 ? 'Foto recibida sin analisis.' : 'Sin mensaje recibido.'),\n      aiModel: 'fallback',\n      aiFallbackReason: reason || $json.transcriptionError || ''\n    }\n  }];\n}\n\nif (!message && !imageBase64) return fallback('empty_message');\nif (!openAiApiKey || openAiApiKey.startsWith('REPLACE_WITH_')) return fallback('missing_openai_key');\n\nconst system = [\n  'Eres un clasificador de capturas personales llamado Mind Drop.',\n  'Recibes una nota breve o una foto en espanol y devuelves solo JSON valido.',\n  'Campos obligatorios: titulo, area, observaciones.',\n  `area debe ser exactamente una de: ${allowedAreas.join(', ')}.`,\n  'Si hay foto, usa siempre el area Foto.',\n  'titulo: maximo 80 caracteres, claro y util como titulo de pagina.',\n  'observaciones: si hay texto, reescribelo de forma clara y accionable en 1-3 frases. Si hay foto, describe lo importante y por que podria guardarse.',\n  'Si hay duda entre areas, usa Personal. Si es una idea suelta, usa Ideas.'\n].join(' ');\n\nconst userContent = imageBase64\n  ? [\n      { type: 'text', text: message || 'Analiza esta foto para guardarla como Mind Drop. Devuelve titulo, area y observaciones.' },\n      { type: 'image_url', image_url: { url: `data:${imageMimeType};base64,${imageBase64}` } }\n    ]\n  : message;\n\ntry {\n  const data = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      'Authorization': `Bearer ${openAiApiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: {\n      model: imageBase64 ? 'gpt-4.1-mini' : 'gpt-4.1-nano',\n      temperature: 0.1,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: system },\n        { role: 'user', content: userContent }\n      ]\n    },\n    json: true\n  });\n\n  const content = data.choices?.[0]?.message?.content || '{}';\n  const parsed = JSON.parse(content);\n  const titulo = String(parsed.titulo || parsed.title || message).trim().slice(0, 80) || 'Mind Drop';\n  const area = imageBase64 ? 'Foto' : cleanArea(parsed.area);\n  const observaciones = String(parsed.observaciones || parsed.notes || parsed.observation || message).trim();\n\n  return [{\n    json: {\n      ...withoutMedia($json),\n      titulo,\n      area,\n      observaciones,\n      aiModel: imageBase64 ? 'gpt-4.1-mini' : 'gpt-4.1-nano'\n    }\n  }];\n} catch (error) {\n  return fallback(error.message || 'openai_error');\n}"
       },
       "id": "6d0be63b-d7cd-4f45-bf65-df941d43038a",
       "name": "AI classify drop",
@@ -135,14 +135,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const failed = Boolean($json.transcriptionError);\nconst title = $json.Titulo || $json.titulo || 'nuevo drop';\nconst transcript = String($json.transcript || $json.message || '').trim();\n\nreturn [{\n  json: {\n    ok: !failed,\n    status: failed ? 'transcription_error' : 'ok',\n    reply: failed\n      ? `No pude transcribir el audio: ${$json.transcriptionError}`\n      : `Guardado en Mind Drop: ${title}.`,\n    transcript,\n    notionPageId: $json.id || '',\n    area: $json.Area || $json.area || ''\n  }\n}];"
+        "jsCode": "const failed = Boolean($json.transcriptionError);\nlet created = {};\nlet classified = {};\nlet tokenPayload = {};\ntry { created = $('Create Mind Drop row').first().json || {}; } catch (error) {}\ntry { classified = $('AI classify drop').first().json || {}; } catch (error) {}\ntry { tokenPayload = $('Validate Rabbit token').first().json || {}; } catch (error) {}\n\nconst title = created.Titulo || created.titulo || classified.titulo || $json.Titulo || $json.titulo || 'nuevo drop';\nconst transcript = String(classified.transcript || classified.message || $json.transcript || $json.message || '').trim();\nconst notionPageId = created.id || $json.notionPageId || $json.id || '';\nconst hasInputPhoto = Boolean(tokenPayload.imageBase64);\nconst photoError = String($json.error?.message || $json.photoUploadError || '').trim();\nconst photoSaved = Boolean(hasInputPhoto && !photoError && notionPageId);\n\nreturn [{\n  json: {\n    ok: !failed,\n    status: failed ? 'transcription_error' : 'ok',\n    reply: failed\n      ? `No pude transcribir el audio: ${$json.transcriptionError}`\n      : `Guardado en Mind Drop: ${title}${photoSaved ? ' con foto.' : '.'}`,\n    transcript,\n    notionPageId,\n    area: created.Area || created.area || classified.area || $json.Area || $json.area || '',\n    photoSaved,\n    photoError\n  }\n}];"
       },
       "id": "5a23cf31-a74e-41c5-9c32-6207b2bb7af3",
       "name": "Build OK response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1664,
+        2944,
         32
       ]
     },
@@ -156,7 +156,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1920,
+        3200,
         32
       ]
     },
@@ -300,6 +300,182 @@
         896,
         -120
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "df0fd9f7-606e-4635-a82c-f5e529d83e52",
+              "leftValue": "={{ Boolean($('Validate Rabbit token').first().json.imageBase64) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d8e40d93-d885-43da-83d5-d7514ed21299",
+      "name": "Has photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1664,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let source = {};\ntry { source = $('Validate Rabbit token').first().json || {}; } catch (error) {}\n\nfunction extensionFor(mimeType) {\n  const clean = String(mimeType || '').split(';')[0].trim().toLowerCase();\n  if (clean.includes('png')) return 'png';\n  if (clean.includes('gif')) return 'gif';\n  if (clean.includes('webp')) return 'webp';\n  return 'jpg';\n}\n\nconst rawBase64 = String(source.imageBase64 || '').replace(/^data:.*?;base64,/, '').trim();\nconst notionPageId = String($json.id || $json.pageId || '').trim();\nconst mimeType = String(source.imageMimeType || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';\nconst extension = extensionFor(mimeType);\nconst safeName = String(source.imageName || `rabbit-r1-photo.${extension}`).replace(/[^a-z0-9._-]/gi, '_');\nconst fileName = safeName.includes('.') ? safeName : `rabbit-r1-photo.${extension}`;\n\nif (!rawBase64 || !notionPageId) {\n  return [{\n    json: {\n      ...$json,\n      notionPageId,\n      hasPhoto: false,\n      photoUploadError: rawBase64 ? 'missing_notion_page_id' : ''\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...$json,\n    notionPageId,\n    hasPhoto: true,\n    imageMimeType: mimeType,\n    imageName: fileName\n  },\n  binary: {\n    photo: {\n      data: rawBase64,\n      mimeType,\n      fileName,\n      fileExtension: extension\n    }\n  }\n}];"
+      },
+      "id": "01dd2f0d-7213-4f1f-bb22-8f546e92bf39",
+      "name": "Prepare Notion photo binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/file_uploads",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2026-03-11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {}
+      },
+      "id": "c0eb81c3-2a5f-4304-b107-3b1a01aab79e",
+      "name": "Create Notion file upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2176,
+        -144
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "let prepared = { json: {}, binary: {} };\ntry { prepared = $('Prepare Notion photo binary').first() || prepared; } catch (error) {}\n\nreturn [{\n  json: {\n    ...prepared.json,\n    fileUploadId: $json.id || '',\n    uploadUrl: $json.upload_url || '',\n    fileUploadStatus: $json.status || '',\n    fileUploadError: $json.error?.message || ''\n  },\n  binary: prepared.binary || {}\n}];"
+      },
+      "id": "cb5d2560-e755-4a35-9b1b-dba43978a86d",
+      "name": "Merge Notion upload context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.uploadUrl || `https://api.notion.com/v1/file_uploads/${$json.fileUploadId}/send` }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2026-03-11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "photo"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2d0defb2-2b16-4804-8950-d2685c5be9b42",
+      "name": "Send Notion file upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2560,
+        -144
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ `https://api.notion.com/v1/blocks/${$('Prepare Notion photo binary').first().json.notionPageId}/children` }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2026-03-11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ children: [{ type: 'image', image: { caption: [], type: 'file_upload', file_upload: { id: $json.id || $('Merge Notion upload context').first().json.fileUploadId } } }] }) }}",
+        "options": {}
+      },
+      "id": "5eddfabe-f073-4403-a283-bda83ded15dc",
+      "name": "Append photo to Mind Drop page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2816,
+        -144
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
     }
   ],
   "pinData": {},
@@ -359,7 +535,7 @@
       "main": [
         [
           {
-            "node": "Build OK response",
+            "node": "Has photo?",
             "type": "main",
             "index": 0
           }
@@ -433,6 +609,79 @@
         [
           {
             "node": "AI classify drop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has photo?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notion photo binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build OK response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Notion photo binary": {
+      "main": [
+        [
+          {
+            "node": "Create Notion file upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Notion file upload": {
+      "main": [
+        [
+          {
+            "node": "Merge Notion upload context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Notion upload context": {
+      "main": [
+        [
+          {
+            "node": "Send Notion file upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notion file upload": {
+      "main": [
+        [
+          {
+            "node": "Append photo to Mind Drop page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append photo to Mind Drop page": {
+      "main": [
+        [
+          {
+            "node": "Build OK response",
             "type": "main",
             "index": 0
           }

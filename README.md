@@ -8,6 +8,7 @@ Dos apps de prueba para validar el SDK de Rabbit R1 Creations en hardware real.
 - `apps/excuse-bot/`: generador de excusas tontas usando el LLM del R1, PTT, scroll wheel, almacenamiento y TTS.
 - `apps/instantsfun-r1/`: mini soundboard de Instantsfun con 424 botones precargados, rejilla 2 columnas, reproduccion directa de MP3, shake para parar y boton lateral random.
 - `apps/n8n-chat-r1/`: chat ligero para conectar Rabbit R1 a n8n mediante un QR privado con endpoint y token.
+- `apps/drop-board-r1/`: tablero de drops por area conectado a n8n y Notion, con instrucciones por PTT y refresco automatico del listado.
 
 ## Desarrollo local
 
@@ -23,6 +24,7 @@ Despues abre:
 - `http://localhost:8080/apps/excuse-bot/`
 - `http://localhost:8080/apps/instantsfun-r1/`
 - `http://localhost:8080/apps/n8n-chat-r1/`
+- `http://localhost:8080/apps/drop-board-r1/`
 
 En navegador normal veras fallbacks porque las APIs `PluginMessageHandler`, `creationStorage` y `creationSensors` solo existen dentro del R1.
 
@@ -54,6 +56,7 @@ Si publicas en GitHub Pages como proyecto:
 - `https://kalvinone2.github.io/rabbitsdk/apps/excuse-bot/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/instantsfun-r1/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/n8n-chat-r1/`
+- `https://kalvinone2.github.io/rabbitsdk/apps/drop-board-r1/`
 
 ## Configuracion privada de n8n Chat R1 / Mind Drop
 

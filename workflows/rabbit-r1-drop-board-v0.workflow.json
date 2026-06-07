@@ -1,0 +1,574 @@
+{
+  "name": "Rabbit R1 Drop Board V0",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Drop Board R1 V0\n\nWebhook para listar drops por area y procesar instrucciones PTT desde Rabbit.\n\n- Sustituye `REPLACE_WITH_RABBIT_TOKEN`.\n- Sustituye `REPLACE_WITH_OPENAI_API_KEY`.\n- Configura la credencial Notion en los nodos Notion.\n- Database: Drops dentro de Mind Drop."
+      },
+      "id": "b15b4f17-0063-4a28-bd9f-7b279ad43f0c",
+      "name": "Setup note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rabbit-r1-drops-board-v0",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://kalvinone2.github.io"
+        }
+      },
+      "id": "40155c40-1d03-4c20-9c8d-e5d5c911cc1d",
+      "name": "Drop Board Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -760,
+        80
+      ],
+      "webhookId": "rabbit-r1-drops-board-v0"
+    },
+    {
+      "parameters": {
+        "jsCode": "const expectedToken = 'REPLACE_WITH_RABBIT_TOKEN';\nconst allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal'];\n\nfunction parsePayload(input) {\n  const direct = input.payload ?? input.body?.payload ?? input.body ?? input;\n\n  if (typeof direct === 'string') {\n    try {\n      return JSON.parse(direct);\n    } catch (error) {\n      return { message: direct };\n    }\n  }\n\n  return direct || {};\n}\n\nfunction cleanArea(value) {\n  const area = String(value || '').trim();\n  return allowedAreas.includes(area) ? area : 'Ideas';\n}\n\nconst payload = parsePayload($json);\nconst token = String(payload.token || payload.apiKey || payload.key || '');\nconst tokenConfigured = expectedToken && !expectedToken.startsWith('REPLACE_WITH_');\nconst valid = Boolean(tokenConfigured && token === expectedToken);\nconst audioBase64 = String(payload.audioBase64 || payload.audio || '').trim();\nconst message = String(payload.message || payload.text || payload.transcript || '').trim();\nconst action = String(payload.action || (audioBase64 ? 'instruct' : 'list')).trim();\nconst now = new Date().toISOString();\n\nreturn [{\n  json: {\n    valid,\n    revoked: !valid,\n    status: valid ? 'ok' : 'revoked',\n    reply: valid ? 'Procesando Drop Board.' : 'Token revocado o invalido.',\n    action,\n    area: cleanArea(payload.area),\n    message,\n    audioBase64,\n    audioMimeType: String(payload.audioMimeType || 'audio/webm'),\n    audioName: String(payload.audioName || 'drop-board-r1.webm'),\n    sessionId: String(payload.sessionId || ''),\n    source: String(payload.source || 'rabbit-r1-drop-board'),\n    sentAt: payload.sentAt || now,\n    receivedAt: now\n  }\n}];"
+      },
+      "id": "77248aef-c506-46f8-a451-598558029f6a",
+      "name": "Validate Rabbit token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4ed330f7-c09f-4f67-9859-f5893e79a7f2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "03b76859-14e8-43dd-8409-4c6d8d6c38f5",
+      "name": "Token valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -280,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9cde1185-8634-41d5-aeb1-0ac6f5395674",
+              "leftValue": "={{ $json.action === 'instruct' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9ab6a19e-29b6-4ab2-b17a-5d825d6d34f4",
+      "name": "Needs instruction?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -40,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function withoutAudio(input) {\n  const { audioBase64, ...rest } = input;\n  return rest;\n}\n\nfunction extensionFor(mimeType) {\n  const clean = String(mimeType || '').split(';')[0].trim().toLowerCase();\n  if (clean.includes('mp4') || clean.includes('m4a')) return 'm4a';\n  if (clean.includes('ogg')) return 'ogg';\n  if (clean.includes('wav')) return 'wav';\n  if (clean.includes('mpeg') || clean.includes('mp3')) return 'mp3';\n  return 'webm';\n}\n\nconst base64 = String($json.audioBase64 || '').replace(/^data:.*?;base64,/, '');\nconst rawMimeType = String($json.audioMimeType || 'audio/webm');\nconst mimeType = rawMimeType.split(';')[0].trim() || 'audio/webm';\nconst extension = extensionFor(mimeType);\nconst fileName = String($json.audioName || `drop-board-r1.${extension}`).replace(/[^a-z0-9._-]/gi, '_');\nconst safeName = fileName.includes('.') ? fileName : `drop-board-r1.${extension}`;\n\nif (!base64) {\n  const existingMessage = String($json.message || '').trim();\n  return [{\n    json: {\n      ...withoutAudio($json),\n      message: existingMessage,\n      transcript: existingMessage,\n      transcriptionError: existingMessage ? '' : 'empty_audio',\n      transcriptionModel: 'whisper-1'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...withoutAudio($json),\n    message: '',\n    transcript: '',\n    transcriptionModel: 'whisper-1'\n  },\n  binary: {\n    audio: {\n      data: base64,\n      mimeType,\n      fileName: safeName,\n      fileExtension: extension\n    }\n  }\n}];"
+      },
+      "id": "9cd5ff4a-75d3-4a62-bf26-fca7cda91585",
+      "name": "Prepare audio binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_OPENAI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "audio"
+            },
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "language",
+              "value": "es"
+            },
+            {
+              "name": "response_format",
+              "value": "json"
+            },
+            {
+              "name": "temperature",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7fd1e47c-ece2-404d-99e7-d3097acb0558",
+      "name": "OpenAI Whisper transcription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        -160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "let source = {};\ntry { source = $('Prepare audio binary').first().json || {}; } catch (error) {}\n\nconst transcript = String($json.text || $json.transcript || source.transcript || source.message || '').trim();\nconst errorMessage = $json.error?.message || (!transcript ? $json.message : '') || source.transcriptionError || '';\n\nreturn [{\n  json: {\n    ...source,\n    ...$json,\n    message: transcript,\n    transcript,\n    transcriptionError: transcript ? '' : (errorMessage || 'empty_transcript'),\n    transcriptionModel: 'whisper-1'\n  }\n}];"
+      },
+      "id": "2f7f7966-fab3-4567-af7b-bb66cef9a747",
+      "name": "Normalize Whisper transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const openAiApiKey = 'REPLACE_WITH_OPENAI_API_KEY';\nconst allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal'];\nconst selectedArea = allowedAreas.includes(String($json.area || '').trim()) ? String($json.area).trim() : 'Ideas';\nconst message = String($json.message || '').trim();\n\nfunction fallback(reason = '') {\n  const title = message ? message.slice(0, 80) : 'Drop Board';\n  return [{\n    json: {\n      ...$json,\n      shouldCreate: Boolean(message),\n      titulo: title,\n      area: selectedArea,\n      observaciones: message || 'Sin instruccion recibida.',\n      boardReply: message ? `Anotado en ${selectedArea}.` : 'No he recibido instruccion.',\n      aiModel: 'fallback',\n      aiFallbackReason: reason\n    }\n  }];\n}\n\nif (!message) return fallback('empty_message');\nif (!openAiApiKey || openAiApiKey.startsWith('REPLACE_WITH_')) return fallback('missing_openai_key');\n\nconst system = [\n  'Eres Drop Board, un asistente que opera una base de datos de Notion llamada Mind Drop.',\n  'Recibes instrucciones de voz desde Rabbit R1.',\n  'Tu tarea V0 es convertir la instruccion en un nuevo drop util, o una nota de trabajo accionable.',\n  'Devuelve solo JSON valido.',\n  'Campos: shouldCreate, titulo, area, observaciones, reply.',\n  `area debe ser exactamente una de: ${allowedAreas.join(', ')}.`,\n  'Si el usuario dice un area explicita, respetala. Si no, usa el area seleccionada como contexto.',\n  'titulo maximo 80 caracteres. observaciones en 1-3 frases. reply breve para el Rabbit.'\n].join(' ');\n\ntry {\n  const data = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      Authorization: `Bearer ${openAiApiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: {\n      model: 'gpt-4.1-nano',\n      temperature: 0.1,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: system },\n        { role: 'user', content: JSON.stringify({ selectedArea, instruction: message }) }\n      ]\n    },\n    json: true\n  });\n\n  const parsed = JSON.parse(data.choices?.[0]?.message?.content || '{}');\n  const area = allowedAreas.includes(String(parsed.area || '').trim()) ? String(parsed.area).trim() : selectedArea;\n  const titulo = String(parsed.titulo || parsed.title || message).trim().slice(0, 80) || 'Drop Board';\n  const observaciones = String(parsed.observaciones || parsed.notes || parsed.observation || message).trim();\n\n  return [{\n    json: {\n      ...$json,\n      shouldCreate: parsed.shouldCreate !== false,\n      titulo,\n      area,\n      observaciones,\n      boardReply: String(parsed.reply || `Actualizado ${area}.`).trim(),\n      aiModel: 'gpt-4.1-nano'\n    }\n  }];\n} catch (error) {\n  return fallback(error.message || 'openai_error');\n}"
+      },
+      "id": "07939ebd-adc8-4979-9b59-dd59a4d6dfd5",
+      "name": "AI Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b5f8719f-3d5d-4ba9-acf4-8da015d15a3b",
+              "leftValue": "={{ $json.shouldCreate === true && Boolean($json.message || $json.transcript) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "44838845-509d-40a9-bb79-1e209473f7bd",
+      "name": "Should create drop?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1160,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "a3251e4bbb7f4f0bb70e81ffdd16eb0e"
+        },
+        "title": "={{ $json.titulo }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Titulo|title",
+              "title": "={{ $json.titulo }}"
+            },
+            {
+              "key": "Area|select",
+              "selectValue": "={{ $json.area }}"
+            },
+            {
+              "key": "Observaciones|rich_text",
+              "textContent": "={{ $json.observaciones }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e92ef750-d8b5-4a2c-b54f-9c1892c2e711",
+      "name": "Create Mind Drop row",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1400,
+        -240
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "a3251e4bbb7f4f0bb70e81ffdd16eb0e"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "4e0c3fb6-56d9-4f20-bae1-2f415352278b",
+      "name": "Get Drops",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1640,
+        20
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal'];\n\nfunction getSource() {\n  try { return $('AI Action').first().json; } catch (error) {}\n  try { return $('Validate Rabbit token').first().json; } catch (error) {}\n  return {};\n}\n\nfunction text(value) {\n  return String(value || '').trim();\n}\n\nfunction rowFrom(item) {\n  const json = item.json || {};\n  const title = text(json.property_titulo || json.Titulo || json.titulo || json.title || json.Name || json.name || 'Drop');\n  const area = text(json.property_area || json.Area || json.area || json['Area|select'] || 'Personal');\n  const observations = text(json.property_observaciones || json.Observaciones || json.observaciones || json['Observaciones|rich_text'] || json.notes || '');\n  return {\n    id: text(json.id || json.pageId || ''),\n    title,\n    area: allowedAreas.includes(area) ? area : 'Personal',\n    observations,\n    updatedAt: text(json.last_edited_time || json.updatedAt || json.created_time || '')\n  };\n}\n\nconst source = getSource();\nconst selectedArea = allowedAreas.includes(text(source.area)) ? text(source.area) : 'Ideas';\nconst rows = $input.all().map(rowFrom);\nconst filtered = rows\n  .filter((row) => row.area === selectedArea)\n  .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))\n  .slice(0, 12);\n\nreturn [{\n  json: {\n    ok: true,\n    status: 'ok',\n    action: source.action || 'list',\n    area: selectedArea,\n    types: allowedAreas,\n    items: filtered,\n    reply: source.boardReply || `Drops de ${selectedArea}: ${filtered.length}`,\n    transcript: source.transcript || source.message || ''\n  }\n}];"
+      },
+      "id": "885263ef-a7aa-4e4f-b273-ea8e4d687333",
+      "name": "Format Drops response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://kalvinone2.github.io"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "caa60535-1325-44c0-825d-23763f69d8fa",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2120,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ok: false,\n    revoked: true,\n    status: 'revoked',\n    reply: 'Token revocado o invalido.'\n  }\n}];"
+      },
+      "id": "bdabdb34-bf58-4484-bac9-1c46e21d3915",
+      "name": "Build Revoked response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 403,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://kalvinone2.github.io"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "e1d47861-b45e-4441-8a6b-346f668e2a97",
+      "name": "Respond Revoked",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Drop Board Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Rabbit token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Rabbit token": {
+      "main": [
+        [
+          {
+            "node": "Token valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token valid?": {
+      "main": [
+        [
+          {
+            "node": "Needs instruction?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Revoked response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs instruction?": {
+      "main": [
+        [
+          {
+            "node": "Prepare audio binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Drops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare audio binary": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Whisper transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Whisper transcription": {
+      "main": [
+        [
+          {
+            "node": "Normalize Whisper transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Whisper transcript": {
+      "main": [
+        [
+          {
+            "node": "AI Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Action": {
+      "main": [
+        [
+          {
+            "node": "Should create drop?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should create drop?": {
+      "main": [
+        [
+          {
+            "node": "Create Mind Drop row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Drops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Mind Drop row": {
+      "main": [
+        [
+          {
+            "node": "Get Drops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Drops": {
+      "main": [
+        [
+          {
+            "node": "Format Drops response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Drops response": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Revoked response": {
+      "main": [
+        [
+          {
+            "node": "Respond Revoked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

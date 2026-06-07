@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=240, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Drop Board R1</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 240px;
+        height: 282px;
+        margin: 0;
+        overflow: hidden;
+        background: #101413;
+        color: #f4f2e9;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        border: 4px solid #2de38c;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      main {
+        width: 100%;
+        height: 100%;
+        padding: 8px;
+      }
+
+      .view {
+        display: none;
+        width: 100%;
+        height: 100%;
+      }
+
+      .view.active {
+        display: grid;
+      }
+
+      #setupView {
+        grid-template-rows: auto auto 1fr auto;
+        gap: 7px;
+      }
+
+      #boardView {
+        grid-template-rows: auto auto 1fr auto;
+        gap: 6px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 17px;
+        line-height: 1;
+      }
+
+      .badge {
+        min-width: 0;
+        max-width: 94px;
+        height: 22px;
+        padding: 0 6px;
+        border: 1px solid #2c5d44;
+        border-radius: 5px;
+        display: grid;
+        place-items: center;
+        color: #a8d9bf;
+        font-size: 10px;
+        font-weight: 800;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .copy {
+        margin: 0;
+        color: #a8d9bf;
+        font-size: 12px;
+        line-height: 1.2;
+      }
+
+      .panel {
+        min-height: 0;
+        border: 1px solid #2c5d44;
+        border-radius: 7px;
+        background: #17221c;
+        overflow: hidden;
+      }
+
+      .pinPanel {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .pinLabel {
+        color: #a8d9bf;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .pinDisplay {
+        height: 38px;
+        border: 1px solid #2c5d44;
+        border-radius: 6px;
+        background: #101812;
+        color: #f4f2e9;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        font-weight: 900;
+        letter-spacing: 4px;
+      }
+
+      .keypad,
+      .types {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+      }
+
+      .types {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      button {
+        height: 34px;
+        border: 0;
+        border-radius: 6px;
+        background: #223229;
+        color: #f4f2e9;
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .key {
+        height: 40px;
+        border: 1px solid #2c5d44;
+        font-size: 17px;
+      }
+
+      .key.primary,
+      .type.active {
+        background: #2de38c;
+        color: #07110c;
+      }
+
+      .items {
+        min-height: 0;
+        padding: 6px;
+        overflow-y: auto;
+      }
+
+      .item {
+        margin: 0 0 5px;
+        padding: 6px;
+        border-radius: 6px;
+        background: #213229;
+        color: #f4f2e9;
+        font-size: 11px;
+        line-height: 1.18;
+        word-break: break-word;
+      }
+
+      .item.empty {
+        border: 1px solid #2c5d44;
+        color: #a8d9bf;
+        background: transparent;
+      }
+
+      .status {
+        min-height: 13px;
+        color: #a8d9bf;
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="view active" id="setupView">
+        <header>
+          <h1>Drop Board</h1>
+          <span class="badge">setup</span>
+        </header>
+
+        <p class="copy">Marca el PIN privado.</p>
+
+        <section class="panel pinPanel">
+          <div>
+            <div class="pinLabel">PIN</div>
+            <div class="pinDisplay" id="pinDisplay">----</div>
+          </div>
+
+          <div class="keypad" id="keypad">
+            <button class="key" data-key="1">1</button>
+            <button class="key" data-key="2">2</button>
+            <button class="key" data-key="3">3</button>
+            <button class="key" data-key="4">4</button>
+            <button class="key" data-key="5">5</button>
+            <button class="key" data-key="6">6</button>
+            <button class="key" data-key="7">7</button>
+            <button class="key" data-key="8">8</button>
+            <button class="key" data-key="9">9</button>
+            <button class="key" data-key="clear">C</button>
+            <button class="key" data-key="0">0</button>
+            <button class="key primary" data-key="back">&lt;</button>
+          </div>
+        </section>
+
+        <footer>
+          <div class="status" id="setupStatus">sin configurar</div>
+        </footer>
+      </section>
+
+      <section class="view" id="boardView">
+        <header>
+          <h1>Drops</h1>
+          <span class="badge" id="selectedBadge">Ideas</span>
+        </header>
+
+        <section class="types" id="types"></section>
+        <section class="panel items" id="items"></section>
+
+        <footer>
+          <div class="status" id="boardStatus">listo</div>
+        </footer>
+      </section>
+    </main>
+
+    <script>
+      const SESSION_KEY = "drop_board_r1_session";
+      const CONFIG_BOOTSTRAP_ENDPOINT = "https://n8n.calvonavarro.com/webhook/rabbit-r1-config-pin";
+      const BOARD_ENDPOINT = "https://n8n.calvonavarro.com/webhook/rabbit-r1-drops-board-v0";
+
+      const state = {
+        config: null,
+        sessionId: "",
+        pin: "",
+        selectedType: "Ideas",
+        types: ["Ideas", "Trabajo", "Personal", "Aprendizaje", "Casa", "Salud", "Finanzas", "Relaciones"],
+        items: [],
+        recorder: null,
+        audioChunks: [],
+        audioMimeType: "",
+        listening: false
+      };
+
+      const setupView = document.getElementById("setupView");
+      const boardView = document.getElementById("boardView");
+      const pinDisplay = document.getElementById("pinDisplay");
+      const keypad = document.getElementById("keypad");
+      const setupStatus = document.getElementById("setupStatus");
+      const boardStatus = document.getElementById("boardStatus");
+      const typesEl = document.getElementById("types");
+      const itemsEl = document.getElementById("items");
+      const selectedBadge = document.getElementById("selectedBadge");
+
+      function encode(value) {
+        return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+      }
+
+      function decode(value) {
+        return JSON.parse(decodeURIComponent(escape(atob(value))));
+      }
+
+      async function setStored(key, value) {
+        const encoded = encode(value);
+        try {
+          if (window.creationStorage) {
+            await window.creationStorage.plain.setItem(key, encoded);
+            return;
+          }
+        } catch (error) {
+          console.warn("storage set failed", error);
+        }
+        localStorage.setItem(key, encoded);
+      }
+
+      async function getStored(key, fallback = null) {
+        try {
+          if (window.creationStorage) {
+            const saved = await window.creationStorage.plain.getItem(key);
+            return saved ? decode(saved) : fallback;
+          }
+        } catch (error) {
+          console.warn("storage get failed", error);
+        }
+        const saved = localStorage.getItem(key);
+        return saved ? decode(saved) : fallback;
+      }
+
+      function ensureSessionId() {
+        if (!state.sessionId) {
+          state.sessionId = `r1-board-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+          setStored(SESSION_KEY, state.sessionId);
+        }
+      }
+
+      function setSetupStatus(text) {
+        setupStatus.textContent = text;
+      }
+
+      function setBoardStatus(text) {
+        boardStatus.textContent = text;
+      }
+
+      function showSetup() {
+        setupView.classList.add("active");
+        boardView.classList.remove("active");
+        state.pin = "";
+        updatePinDisplay();
+      }
+
+      function showBoard() {
+        setupView.classList.remove("active");
+        boardView.classList.add("active");
+        renderTypes();
+        renderItems();
+      }
+
+      function updatePinDisplay() {
+        const dots = "****".slice(0, state.pin.length);
+        pinDisplay.textContent = `${dots}${"----".slice(state.pin.length)}`;
+      }
+
+      function pressPinKey(key) {
+        if (key === "clear") {
+          state.pin = "";
+        } else if (key === "back") {
+          state.pin = state.pin.slice(0, -1);
+        } else if (/^\d$/.test(key) && state.pin.length < 4) {
+          state.pin += key;
+        }
+
+        updatePinDisplay();
+        setSetupStatus(state.pin.length ? "marcando..." : "sin configurar");
+
+        if (state.pin.length === 4) {
+          fetchConfigByPin();
+        }
+      }
+
+      async function fetchConfigByPin() {
+        setSetupStatus("conectando...");
+
+        try {
+          const response = await fetch(CONFIG_BOOTSTRAP_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: new URLSearchParams({ payload: JSON.stringify({ pin: state.pin }) })
+          });
+
+          const raw = await response.text();
+          const data = raw ? JSON.parse(raw) : {};
+          if (!response.ok || data.revoked || data.status === "revoked" || data.error) {
+            throw new Error(data.reply || data.error || `HTTP ${response.status}`);
+          }
+
+          state.config = data.config || data;
+          ensureSessionId();
+          showBoard();
+          await loadDrops(state.selectedType);
+        } catch (error) {
+          state.pin = "";
+          updatePinDisplay();
+          setSetupStatus(error.message || "PIN invalido");
+        }
+      }
+
+      function renderTypes() {
+        selectedBadge.textContent = state.selectedType;
+        typesEl.innerHTML = "";
+        for (const type of state.types) {
+          const button = document.createElement("button");
+          button.className = `type${type === state.selectedType ? " active" : ""}`;
+          button.textContent = type;
+          button.addEventListener("click", () => loadDrops(type));
+          typesEl.appendChild(button);
+        }
+      }
+
+      function renderItems() {
+        itemsEl.innerHTML = "";
+        const items = state.items.length ? state.items : [{ title: "Sin drops", observations: "PTT para crear uno nuevo." }];
+
+        for (const item of items) {
+          const el = document.createElement("p");
+          el.className = `item${state.items.length ? "" : " empty"}`;
+          el.textContent = item.observations ? `${item.title}: ${item.observations}` : item.title;
+          itemsEl.appendChild(el);
+        }
+        itemsEl.scrollTop = 0;
+      }
+
+      async function postBoard(payload) {
+        if (!state.config) {
+          showSetup();
+          return null;
+        }
+
+        ensureSessionId();
+        const response = await fetch(BOARD_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: new URLSearchParams({
+            payload: JSON.stringify({
+              token: state.config.token,
+              area: state.selectedType,
+              sessionId: state.sessionId,
+              source: "rabbit-r1-drop-board",
+              sentAt: new Date().toISOString(),
+              ...payload
+            })
+          })
+        });
+
+        const raw = await response.text();
+        let data = raw;
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch (error) {
+          data = { reply: raw || `HTTP ${response.status}` };
+        }
+
+        if (!response.ok || data.revoked || data.status === "revoked") {
+          throw new Error(data.reply || `HTTP ${response.status}`);
+        }
+
+        return data;
+      }
+
+      async function loadDrops(type) {
+        state.selectedType = type || state.selectedType;
+        renderTypes();
+        setBoardStatus("cargando...");
+
+        try {
+          const data = await postBoard({ action: "list" });
+          if (!data) return;
+          state.types = data.types && data.types.length ? data.types : state.types;
+          state.items = Array.isArray(data.items) ? data.items : [];
+          renderTypes();
+          renderItems();
+          setBoardStatus(data.reply || "lista actualizada");
+        } catch (error) {
+          setBoardStatus(error.message || "fallo de red");
+        }
+      }
+
+      function getSupportedAudioMimeType() {
+        if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+        const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+        return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+      }
+
+      function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(reader.error || new Error("audio invalido"));
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      async function startVoice() {
+        if (!state.config || state.listening) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+          setBoardStatus("micro no disponible");
+          return;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          const mimeType = getSupportedAudioMimeType();
+          state.audioChunks = [];
+          state.audioMimeType = mimeType || "audio/webm";
+          state.recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+          state.recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) state.audioChunks.push(event.data);
+          };
+
+          state.recorder.onstop = async () => {
+            state.listening = false;
+            stream.getTracks().forEach((track) => track.stop());
+            const blob = new Blob(state.audioChunks, { type: state.audioMimeType });
+            state.audioChunks = [];
+            if (!blob.size) {
+              setBoardStatus("audio vacio");
+              return;
+            }
+            await sendInstruction(blob);
+          };
+
+          state.recorder.start();
+          state.listening = true;
+          setBoardStatus("escuchando...");
+        } catch (error) {
+          setBoardStatus("micro denegado");
+        }
+      }
+
+      function stopVoice() {
+        if (!state.recorder || !state.listening) return;
+        setBoardStatus("procesando...");
+        state.recorder.stop();
+      }
+
+      async function sendInstruction(blob) {
+        try {
+          const dataUrl = await blobToDataUrl(blob);
+          const audioBase64 = dataUrl.includes(",") ? dataUrl.split(",").pop() : dataUrl;
+          const data = await postBoard({
+            action: "instruct",
+            audioBase64,
+            audioMimeType: blob.type || state.audioMimeType || "audio/webm",
+            audioName: "drop-board-r1.webm"
+          });
+          if (!data) return;
+          state.types = data.types && data.types.length ? data.types : state.types;
+          state.selectedType = data.area || state.selectedType;
+          state.items = Array.isArray(data.items) ? data.items : [];
+          renderTypes();
+          renderItems();
+          setBoardStatus(data.reply || "actualizado");
+        } catch (error) {
+          setBoardStatus(error.message || "fallo de red");
+        }
+      }
+
+      keypad.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-key]");
+        if (!button) return;
+        pressPinKey(button.dataset.key || "");
+      });
+
+      window.addEventListener("longPressStart", startVoice);
+      window.addEventListener("longPressEnd", stopVoice);
+
+      async function boot() {
+        state.sessionId = await getStored(SESSION_KEY, "");
+        showSetup();
+      }
+
+      boot();
+    </script>
+  </body>
+</html>

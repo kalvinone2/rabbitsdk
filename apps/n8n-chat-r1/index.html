@@ -218,6 +218,10 @@
         display: block;
       }
 
+      .cameraPanel.saving {
+        pointer-events: none;
+      }
+
       .cameraHint {
         position: absolute;
         left: 6px;
@@ -231,6 +235,39 @@
         font-size: 10px;
         font-weight: 800;
         text-align: center;
+      }
+
+      .cameraSaving {
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: center;
+        background: rgba(5, 8, 6, 0.76);
+        color: #f4f2e9;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .cameraPanel.saving .cameraSaving {
+        display: grid;
+      }
+
+      .spinner {
+        width: 34px;
+        height: 34px;
+        margin: 0 auto 9px;
+        border: 4px solid rgba(244, 242, 233, 0.22);
+        border-top-color: #2de38c;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       .msg {
@@ -336,6 +373,12 @@
           <video id="cameraVideo" muted playsinline></video>
           <img id="photoPreview" alt="Foto capturada" />
           <div class="cameraHint" id="cameraHint">tap foto</div>
+          <div class="cameraSaving" id="cameraSaving">
+            <div>
+              <div class="spinner"></div>
+              Guardando
+            </div>
+          </div>
         </section>
 
         <footer>
@@ -366,6 +409,7 @@
         lastSideClickAt: 0,
         cameraLongTapTimer: null,
         ignoreNextCameraTap: false,
+        cameraSaving: false,
         lastShakeAt: 0,
         finalTranscript: "",
         interimTranscript: "",
@@ -450,6 +494,13 @@
 
       function setCameraStatus(text) {
         cameraStatus.textContent = text;
+      }
+
+      function setCameraSaving(isSaving) {
+        state.cameraSaving = isSaving;
+        cameraPanel.classList.toggle("saving", isSaving);
+        cameraBadge.textContent = isSaving ? "guardando" : state.photoDataUrl ? "foto" : "preview";
+        cameraHint.textContent = isSaving ? "espera..." : state.photoDataUrl ? "tap guarda / long tap borra" : "side foto";
       }
 
       function ensureSessionId() {
@@ -685,6 +736,7 @@
         state.photoDataUrl = "";
         clearCameraLongTap();
         state.ignoreNextCameraTap = false;
+        setCameraSaving(false);
         photoPreview.removeAttribute("src");
         cameraPanel.classList.remove("captured");
         cameraBadge.textContent = "preview";
@@ -723,18 +775,19 @@
         state.photoDataUrl = "";
         clearCameraLongTap();
         state.ignoreNextCameraTap = false;
+        setCameraSaving(false);
         photoPreview.removeAttribute("src");
         cameraPanel.classList.remove("captured");
         if (state.config) {
           showChat();
-          setChatStatus("listo");
+          setChatStatus("mantén PTT");
         } else {
           showSetup();
         }
       }
 
       function capturePhoto() {
-        if (state.mode !== "camera" || state.photoDataUrl) return;
+        if (state.mode !== "camera" || state.photoDataUrl || state.cameraSaving) return;
         if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
           setCameraStatus("sin preview");
           return;
@@ -763,18 +816,19 @@
       }
 
       function clearPhoto() {
-        if (state.mode !== "camera" || !state.photoDataUrl) return;
+        if (state.mode !== "camera" || !state.photoDataUrl || state.cameraSaving) return;
         clearCameraLongTap();
         state.photoDataUrl = "";
         photoPreview.removeAttribute("src");
         cameraPanel.classList.remove("captured");
+        setCameraSaving(false);
         cameraBadge.textContent = "preview";
         cameraHint.textContent = "side foto";
         setCameraStatus("borrada");
       }
 
       async function savePhoto() {
-        if (state.mode !== "camera") return;
+        if (state.mode !== "camera" || state.cameraSaving) return;
         if (!state.photoDataUrl) {
           setCameraStatus("haz foto primero");
           return;
@@ -786,6 +840,7 @@
 
         clearCameraLongTap();
         ensureSessionId();
+        setCameraSaving(true);
         setCameraStatus("guardando...");
         const imageBase64 = state.photoDataUrl.includes(",") ? state.photoDataUrl.split(",").pop() : state.photoDataUrl;
         const payload = {
@@ -817,11 +872,13 @@
           }
 
           if (response.status === 401 || response.status === 403 || isRevoked(data)) {
+            setCameraSaving(false);
             await revokeLocalConfig();
             return;
           }
 
           if (!response.ok) {
+            setCameraSaving(false);
             setCameraStatus(`HTTP ${response.status}`);
             return;
           }
@@ -830,14 +887,15 @@
           addMessage("bot", reply);
           speakText(reply);
           await closeCameraMode();
-          setChatStatus("foto guardada");
+          setChatStatus("mantén PTT");
         } catch (error) {
+          setCameraSaving(false);
           setCameraStatus("fallo de red");
         }
       }
 
       function handleCameraTap() {
-        if (state.mode !== "camera") return;
+        if (state.mode !== "camera" || state.cameraSaving) return;
 
         if (state.ignoreNextCameraTap) {
           state.ignoreNextCameraTap = false;
@@ -853,7 +911,7 @@
       }
 
       function handleCameraPointerDown() {
-        if (state.mode !== "camera" || !state.photoDataUrl) return;
+        if (state.mode !== "camera" || !state.photoDataUrl || state.cameraSaving) return;
         clearCameraLongTap();
         state.ignoreNextCameraTap = false;
         state.cameraLongTapTimer = setTimeout(() => {
@@ -1105,6 +1163,7 @@
 
       function handleSideClick() {
         if (state.mode === "camera") {
+          if (state.cameraSaving) return;
           if (!state.photoDataUrl) {
             capturePhoto();
           } else {
@@ -1128,6 +1187,7 @@
 
       function handleLongPressStart() {
         if (state.mode === "camera") {
+          if (state.cameraSaving) return;
           if (state.photoDataUrl) {
             clearPhoto();
           } else {

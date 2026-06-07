@@ -107,6 +107,7 @@
         position: relative;
         display: grid;
         place-items: center;
+        padding: 10px;
       }
 
       video {
@@ -143,6 +144,18 @@
 
       .scanner.active .scanBox {
         display: block;
+      }
+
+      .pinBox {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .pinBox label {
+        color: #a8d9bf;
+        font-size: 11px;
+        font-weight: 800;
       }
 
       textarea,
@@ -260,18 +273,20 @@
           <span class="badge">setup</span>
         </header>
 
-        <p class="copy">Escanea un QR privado con endpoint y token.</p>
+        <p class="copy">Introduce el PIN privado para conectar con n8n.</p>
 
         <section class="panel scanner" id="scanner">
           <video id="video" muted playsinline></video>
-          <div class="scanIdle">QR JSON<br />o pega abajo</div>
-          <div class="scanBox"></div>
+          <div class="pinBox">
+            <label for="pinInput">PIN</label>
+            <input id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" />
+          </div>
         </section>
 
         <footer>
-          <textarea id="configInput" spellcheck="false" placeholder='{"endpoint":"https://...","token":"r1_..."}'></textarea>
+          <textarea id="configInput" spellcheck="false" placeholder='JSON manual opcional'></textarea>
           <div class="actions">
-            <button id="scanBtn">Escanear</button>
+            <button id="scanBtn">Conectar</button>
             <button class="secondary" id="saveConfigBtn">Guardar</button>
           </div>
           <div class="status" id="setupStatus">sin configurar</div>
@@ -303,6 +318,7 @@
       const CONFIG_KEY = "n8n_chat_r1_config";
       const SESSION_KEY = "n8n_chat_r1_session";
       const HISTORY_KEY = "n8n_chat_r1_history";
+      const CONFIG_BOOTSTRAP_ENDPOINT = "https://n8n.calvonavarro.com/webhook/rabbit-r1-config-pin";
 
       const state = {
         config: null,
@@ -321,6 +337,7 @@
       const chatView = document.getElementById("chatView");
       const scannerEl = document.getElementById("scanner");
       const videoEl = document.getElementById("video");
+      const pinInput = document.getElementById("pinInput");
       const configInput = document.getElementById("configInput");
       const setupStatus = document.getElementById("setupStatus");
       const chatStatus = document.getElementById("chatStatus");
@@ -412,7 +429,7 @@
 
       function parseConfig(raw) {
         const text = String(raw || "").trim();
-        if (!text) throw new Error("QR vacio");
+        if (!text) throw new Error("config vacia");
 
         let data;
         if (text.startsWith("http")) {
@@ -471,7 +488,44 @@
           state.stream = null;
         }
 
-        videoEl.srcObject = null;
+        if (videoEl) videoEl.srcObject = null;
+      }
+
+      async function fetchConfigByPin() {
+        const pin = String(pinInput.value || "").trim();
+        if (!pin) {
+          setSetupStatus("falta PIN");
+          return;
+        }
+
+        setSetupStatus("conectando...");
+
+        try {
+          const response = await fetch(CONFIG_BOOTSTRAP_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: new URLSearchParams({ payload: JSON.stringify({ pin }) })
+          });
+
+          const raw = await response.text();
+          let data = {};
+
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (error) {
+            throw new Error("respuesta invalida");
+          }
+
+          if (!response.ok || data.revoked || data.status === "revoked" || data.error) {
+            throw new Error(data.reply || data.error || `HTTP ${response.status}`);
+          }
+
+          const config = data.config || data;
+          configInput.value = JSON.stringify(config);
+          await saveConfigFromText(JSON.stringify(config));
+        } catch (error) {
+          setSetupStatus(error.message || "PIN invalido");
+        }
       }
 
       async function scanFrame(detector) {
@@ -740,14 +794,7 @@
         configInput.value = "";
       }
 
-      document.getElementById("scanBtn").addEventListener("click", () => {
-        if (state.scanning) {
-          stopScanner();
-          setSetupStatus("scanner parado");
-        } else {
-          startScanner();
-        }
-      });
+      document.getElementById("scanBtn").addEventListener("click", fetchConfigByPin);
 
       document.getElementById("saveConfigBtn").addEventListener("click", () => saveConfigFromText(configInput.value));
       document.getElementById("sendBtn").addEventListener("click", () => sendMessage(messageInput.value));

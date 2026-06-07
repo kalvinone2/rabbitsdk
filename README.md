@@ -75,6 +75,8 @@ El workflow publico usa placeholders para secretos:
 - `REPLACE_WITH_OPENAI_API_KEY`
 - `REPLACE_WITH_NOTION_CREDENTIAL_ID`
 
+Para evitar que el lector QR del R1 crashee la app, `n8n-chat-r1` tambien soporta configurar por PIN contra `https://n8n.calvonavarro.com/webhook/rabbit-r1-config-pin`. El workflow importable esta en `workflows/rabbit-r1-config-pin.workflow.json` y devuelve la misma config privada que antes iba dentro del QR.
+
 ## Generador QR
 
 El repo oficial contiene el generador en `qr/final`, pero la URL de GitHub Pages del proyecto no esta publicada actualmente. Opciones practicas:

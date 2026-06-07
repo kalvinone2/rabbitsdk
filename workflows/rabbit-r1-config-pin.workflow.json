@@ -1,0 +1,164 @@
+{
+  "name": "Rabbit R1 Config PIN V0",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup\n\nEndpoint de bootstrap para Rabbit R1.\n\n- Webhook: `/webhook/rabbit-r1-config-pin`\n- Sustituye `REPLACE_WITH_PIN` por el PIN privado.\n- Sustituye `REPLACE_WITH_RABBIT_TOKEN` por el token que valida `Rabbit R1 Mind Drop V0`.\n\nDevuelve la config privada que antes iba en el QR, sin meter secretos en la webapp publica."
+      },
+      "id": "0eaa179f-9fdb-443a-a832-63c69b5c13ef",
+      "name": "Setup note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -580,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rabbit-r1-config-pin",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4e7ef3b3-d02a-4288-8641-15587d6713e1",
+      "name": "Config PIN Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        80
+      ],
+      "webhookId": "rabbit-r1-config-pin"
+    },
+    {
+      "parameters": {
+        "jsCode": "const expectedPin = 'REPLACE_WITH_PIN';\nconst config = {\n  v: 2,\n  name: 'Mind Drop',\n  endpoint: 'https://n8n.calvonavarro.com/webhook/rabbit-r1-notion-v0',\n  token: 'REPLACE_WITH_RABBIT_TOKEN',\n  lang: 'es-ES',\n  speak: true\n};\n\nfunction parsePayload(input) {\n  const direct = input.payload ?? input.body?.payload ?? input.body ?? input;\n  if (typeof direct === 'string') {\n    try { return JSON.parse(direct); } catch (error) { return { pin: direct }; }\n  }\n  return direct || {};\n}\n\nconst payload = parsePayload($json);\nconst pin = String(payload.pin || payload.code || '').trim();\nconst ok = Boolean(expectedPin && !expectedPin.startsWith('REPLACE_WITH_') && pin === expectedPin);\n\nreturn [{\n  json: ok\n    ? { ok: true, status: 'ok', config }\n    : { ok: false, revoked: true, status: 'revoked', reply: 'PIN invalido' }\n}];"
+      },
+      "id": "95cf08f6-00e8-44f0-8756-f3bcbd89c44c",
+      "name": "Validate PIN",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "064e2a89-a61f-45d2-9f58-cf685aa1dbef",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "45cb5539-f11b-4899-873d-6bb0c7c52198",
+      "name": "PIN valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -60,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "f3dd2630-b3b5-445b-a788-0df977232c99",
+      "name": "Respond Config",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "5bc3a8d6-6154-41d6-9a4e-f951152d23b6",
+      "name": "Respond Invalid PIN",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        180
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Config PIN Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate PIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate PIN": {
+      "main": [
+        [
+          {
+            "node": "PIN valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PIN valid?": {
+      "main": [
+        [
+          {
+            "node": "Respond Config",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid PIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f3376fdc-7413-41f5-ad30-e4edb71d8285",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

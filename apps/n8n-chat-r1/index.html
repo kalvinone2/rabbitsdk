@@ -364,7 +364,8 @@
         photoDataUrl: "",
         mode: "setup",
         lastSideClickAt: 0,
-        pendingPhotoTapTimer: null,
+        cameraLongTapTimer: null,
+        ignoreNextCameraTap: false,
         lastShakeAt: 0,
         finalTranscript: "",
         interimTranscript: "",
@@ -682,11 +683,12 @@
 
         showCamera();
         state.photoDataUrl = "";
-        clearPendingPhotoTap();
+        clearCameraLongTap();
+        state.ignoreNextCameraTap = false;
         photoPreview.removeAttribute("src");
         cameraPanel.classList.remove("captured");
         cameraBadge.textContent = "preview";
-        cameraHint.textContent = "tap foto";
+        cameraHint.textContent = "side foto";
         setCameraStatus("abriendo camara...");
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -702,7 +704,7 @@
           });
           cameraVideo.srcObject = state.cameraStream;
           await cameraVideo.play();
-          setCameraStatus("tap pantalla");
+          setCameraStatus("boton lateral: foto");
         } catch (error) {
           setCameraStatus("camara denegada");
         }
@@ -719,7 +721,8 @@
       async function closeCameraMode() {
         await stopCameraStream();
         state.photoDataUrl = "";
-        clearPendingPhotoTap();
+        clearCameraLongTap();
+        state.ignoreNextCameraTap = false;
         photoPreview.removeAttribute("src");
         cameraPanel.classList.remove("captured");
         if (state.config) {
@@ -737,6 +740,7 @@
           return;
         }
 
+        state.ignoreNextCameraTap = false;
         const canvas = document.createElement("canvas");
         const maxWidth = 960;
         const scale = Math.min(1, maxWidth / cameraVideo.videoWidth);
@@ -748,24 +752,24 @@
         photoPreview.src = state.photoDataUrl;
         cameraPanel.classList.add("captured");
         cameraBadge.textContent = "foto";
-        cameraHint.textContent = "tap borra / doble tap guarda";
+        cameraHint.textContent = "tap guarda / long tap borra";
         setCameraStatus("foto lista");
       }
 
-      function clearPendingPhotoTap() {
-        if (!state.pendingPhotoTapTimer) return;
-        clearTimeout(state.pendingPhotoTapTimer);
-        state.pendingPhotoTapTimer = null;
+      function clearCameraLongTap() {
+        if (!state.cameraLongTapTimer) return;
+        clearTimeout(state.cameraLongTapTimer);
+        state.cameraLongTapTimer = null;
       }
 
       function clearPhoto() {
         if (state.mode !== "camera" || !state.photoDataUrl) return;
-        clearPendingPhotoTap();
+        clearCameraLongTap();
         state.photoDataUrl = "";
         photoPreview.removeAttribute("src");
         cameraPanel.classList.remove("captured");
         cameraBadge.textContent = "preview";
-        cameraHint.textContent = "tap foto";
+        cameraHint.textContent = "side foto";
         setCameraStatus("borrada");
       }
 
@@ -780,7 +784,7 @@
           return;
         }
 
-        clearPendingPhotoTap();
+        clearCameraLongTap();
         ensureSessionId();
         setCameraStatus("guardando...");
         const imageBase64 = state.photoDataUrl.includes(",") ? state.photoDataUrl.split(",").pop() : state.photoDataUrl;
@@ -835,22 +839,32 @@
       function handleCameraTap() {
         if (state.mode !== "camera") return;
 
+        if (state.ignoreNextCameraTap) {
+          state.ignoreNextCameraTap = false;
+          return;
+        }
+
         if (!state.photoDataUrl) {
-          capturePhoto();
+          setCameraStatus("boton lateral: foto");
           return;
         }
 
-        if (state.pendingPhotoTapTimer) {
-          clearPendingPhotoTap();
-          savePhoto();
-          return;
-        }
+        savePhoto();
+      }
 
-        setCameraStatus("doble tap guarda");
-        state.pendingPhotoTapTimer = setTimeout(() => {
-          state.pendingPhotoTapTimer = null;
+      function handleCameraPointerDown() {
+        if (state.mode !== "camera" || !state.photoDataUrl) return;
+        clearCameraLongTap();
+        state.ignoreNextCameraTap = false;
+        state.cameraLongTapTimer = setTimeout(() => {
+          state.cameraLongTapTimer = null;
+          state.ignoreNextCameraTap = true;
           clearPhoto();
-        }, 360);
+        }, 560);
+      }
+
+      function handleCameraPointerEnd() {
+        clearCameraLongTap();
       }
 
       function initCameraShake() {
@@ -1091,7 +1105,11 @@
 
       function handleSideClick() {
         if (state.mode === "camera") {
-          savePhoto();
+          if (!state.photoDataUrl) {
+            capturePhoto();
+          } else {
+            setCameraStatus("tap guarda");
+          }
           return;
         }
 
@@ -1110,7 +1128,11 @@
 
       function handleLongPressStart() {
         if (state.mode === "camera") {
-          closeCameraMode();
+          if (state.photoDataUrl) {
+            clearPhoto();
+          } else {
+            closeCameraMode();
+          }
           return;
         }
 
@@ -1129,6 +1151,10 @@
       });
 
       cameraPanel.addEventListener("click", handleCameraTap);
+      cameraPanel.addEventListener("pointerdown", handleCameraPointerDown);
+      cameraPanel.addEventListener("pointerup", handleCameraPointerEnd);
+      cameraPanel.addEventListener("pointercancel", handleCameraPointerEnd);
+      cameraPanel.addEventListener("pointerleave", handleCameraPointerEnd);
       window.addEventListener("sideClick", handleSideClick);
       window.addEventListener("longPressStart", handleLongPressStart);
       window.addEventListener("longPressEnd", handleLongPressEnd);

@@ -284,18 +284,17 @@
     },
     {
       "parameters": {
-        "resource": "databasePage",
-        "operation": "getAll",
+        "resource": "database",
+        "operation": "get",
         "databaseId": {
           "__rl": true,
           "mode": "id",
           "value": "a3251e4bbb7f4f0bb70e81ffdd16eb0e"
         },
-        "returnAll": true,
-        "options": {}
+        "simple": false
       },
-      "id": "4e0c3fb6-56d9-4f20-bae1-2f415352278b",
-      "name": "Get Drops",
+      "id": "2f7b762a-4fd1-47a6-9cf2-d06f8c69ca24",
+      "name": "Get Drops database",
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2.2,
       "position": [
@@ -312,14 +311,42 @@
     },
     {
       "parameters": {
-        "jsCode": "const allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal', 'Foto'];\n\nfunction getSource() {\n  try { return $('AI Action').first().json; } catch (error) {}\n  try { return $('Validate Rabbit token').first().json; } catch (error) {}\n  return {};\n}\n\nfunction text(value) {\n  return String(value || '').trim();\n}\n\nfunction rowFrom(item) {\n  const json = item.json || {};\n  const title = text(json.property_titulo || json.Titulo || json.titulo || json.title || json.Name || json.name || 'Drop');\n  const area = text(json.property_area || json.Area || json.area || json['Area|select'] || 'Personal');\n  const observations = text(json.property_observaciones || json.Observaciones || json.observaciones || json['Observaciones|rich_text'] || json.notes || '');\n  return {\n    id: text(json.id || json.pageId || ''),\n    title,\n    area: allowedAreas.includes(area) ? area : 'Personal',\n    observations,\n    updatedAt: text(json.last_edited_time || json.updatedAt || json.created_time || '')\n  };\n}\n\nconst source = getSource();\nconst selectedArea = allowedAreas.includes(text(source.area)) ? text(source.area) : 'Ideas';\nconst rows = $input.all().map(rowFrom);\nconst filtered = rows\n  .filter((row) => row.area === selectedArea)\n  .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))\n  .slice(0, 12);\n\nreturn [{\n  json: {\n    ok: true,\n    status: 'ok',\n    action: source.action || 'list',\n    area: selectedArea,\n    types: allowedAreas,\n    items: filtered,\n    reply: source.boardReply || `Drops de ${selectedArea}: ${filtered.length}`,\n    transcript: source.transcript || source.message || ''\n  }\n}];"
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "a3251e4bbb7f4f0bb70e81ffdd16eb0e"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "4e0c3fb6-56d9-4f20-bae1-2f415352278b",
+      "name": "Get Drops",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1880,
+        20
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal', 'Foto'];\nconst colorHex = {\n  default: '#8a8178',\n  gray: '#78716c',\n  brown: '#9a674d',\n  orange: '#d97706',\n  yellow: '#ca8a04',\n  green: '#16a34a',\n  blue: '#2563eb',\n  purple: '#7c3aed',\n  pink: '#db2777',\n  red: '#dc2626'\n};\n\nfunction getSource() {\n  try { return $('AI Action').first().json; } catch (error) {}\n  try { return $('Validate Rabbit token').first().json; } catch (error) {}\n  return {};\n}\n\nfunction text(value) {\n  return String(value || '').trim();\n}\n\nfunction getAreaColorMap() {\n  let schema = {};\n  try { schema = $('Get Drops database').first().json || {}; } catch (error) {}\n\n  const areaProperty =\n    schema.properties?.Area ||\n    schema.schema?.Area ||\n    schema.Area ||\n    {};\n  const options =\n    areaProperty.select?.options ||\n    areaProperty.options ||\n    areaProperty.select_options ||\n    [];\n\n  return options.reduce((acc, option) => {\n    const name = text(option.name);\n    if (!name) return acc;\n    const notionColor = text(option.color || option.colour || 'default') || 'default';\n    acc[name] = {\n      notionColor,\n      color: colorHex[notionColor] || colorHex.default\n    };\n    return acc;\n  }, {});\n}\n\nfunction rowFrom(item) {\n  const json = item.json || {};\n  const title = text(json.property_titulo || json.Titulo || json.titulo || json.title || json.Name || json.name || 'Drop');\n  const area = text(json.property_area || json.Area || json.area || json['Area|select'] || 'Personal');\n  const observations = text(json.property_observaciones || json.Observaciones || json.observaciones || json['Observaciones|rich_text'] || json.notes || '');\n  return {\n    id: text(json.id || json.pageId || ''),\n    title,\n    area: allowedAreas.includes(area) ? area : 'Personal',\n    observations,\n    updatedAt: text(json.last_edited_time || json.updatedAt || json.created_time || '')\n  };\n}\n\nconst source = getSource();\nconst rows = $input.all().map(rowFrom);\nconst colorMap = getAreaColorMap();\nconst counts = rows.reduce((acc, row) => {\n  acc[row.area] = (acc[row.area] || 0) + 1;\n  return acc;\n}, {});\nconst types = allowedAreas\n  .filter((area) => counts[area] > 0)\n  .map((area) => ({\n    name: area,\n    count: counts[area],\n    notionColor: colorMap[area]?.notionColor || 'default',\n    color: colorMap[area]?.color || colorHex.default\n  }));\nconst requestedArea = allowedAreas.includes(text(source.area)) ? text(source.area) : '';\nconst selectedArea = counts[requestedArea] ? requestedArea : (types[0]?.name || requestedArea || 'Ideas');\nconst filtered = rows\n  .filter((row) => row.area === selectedArea)\n  .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))\n  .slice(0, 12);\n\nreturn [{\n  json: {\n    ok: true,\n    status: 'ok',\n    action: source.action || 'list',\n    area: selectedArea,\n    types,\n    items: filtered,\n    reply: source.boardReply || `Drops de ${selectedArea}: ${filtered.length}`,\n    transcript: source.transcript || source.message || ''\n  }\n}];"
       },
       "id": "885263ef-a7aa-4e4f-b273-ea8e4d687333",
       "name": "Format Drops response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1880,
+        2120,
         20
       ]
     },
@@ -351,7 +378,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        2120,
+        2360,
         20
       ]
     },
@@ -454,7 +481,7 @@
         ],
         [
           {
-            "node": "Get Drops",
+            "node": "Get Drops database",
             "type": "main",
             "index": 0
           }
@@ -516,7 +543,7 @@
         ],
         [
           {
-            "node": "Get Drops",
+            "node": "Get Drops database",
             "type": "main",
             "index": 0
           }
@@ -524,6 +551,17 @@
       ]
     },
     "Create Mind Drop row": {
+      "main": [
+        [
+          {
+            "node": "Get Drops database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Drops database": {
       "main": [
         [
           {

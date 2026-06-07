@@ -15,13 +15,13 @@
         height: 282px;
         margin: 0;
         overflow: hidden;
-        background: #101413;
-        color: #f4f2e9;
+        background: #e8edf0;
+        color: #171b25;
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
       body {
-        border: 4px solid #2de38c;
+        border: 4px solid #263142;
       }
 
       button {
@@ -44,59 +44,55 @@
         display: grid;
       }
 
-      #setupView {
-        grid-template-rows: auto auto 1fr auto;
+      #setupView,
+      #typesView,
+      #detailView {
+        grid-template-rows: auto 1fr auto;
         gap: 7px;
-      }
-
-      #boardView {
-        grid-template-rows: auto auto 1fr auto;
-        gap: 6px;
       }
 
       header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 7px;
         min-width: 0;
       }
 
       h1 {
         margin: 0;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #171b25;
         font-size: 17px;
         line-height: 1;
       }
 
       .badge {
         min-width: 0;
-        max-width: 94px;
+        max-width: 82px;
         height: 22px;
         padding: 0 6px;
-        border: 1px solid #2c5d44;
+        border: 1px solid #9aa3ad;
         border-radius: 5px;
         display: grid;
         place-items: center;
-        color: #a8d9bf;
+        background: #ffffff;
+        color: #263142;
         font-size: 10px;
-        font-weight: 800;
+        font-weight: 900;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
-      .copy {
-        margin: 0;
-        color: #a8d9bf;
-        font-size: 12px;
-        line-height: 1.2;
-      }
-
       .panel {
         min-height: 0;
-        border: 1px solid #2c5d44;
+        border: 1px solid #9aa3ad;
         border-radius: 7px;
-        background: #17221c;
+        background: #ffffff;
         overflow: hidden;
       }
 
@@ -108,18 +104,18 @@
       }
 
       .pinLabel {
-        color: #a8d9bf;
+        color: #4d5968;
         font-size: 11px;
-        font-weight: 800;
+        font-weight: 900;
         text-transform: uppercase;
       }
 
       .pinDisplay {
         height: 38px;
-        border: 1px solid #2c5d44;
+        border: 2px solid #263142;
         border-radius: 6px;
-        background: #101812;
-        color: #f4f2e9;
+        background: #f8fafb;
+        color: #171b25;
         display: grid;
         place-items: center;
         font-size: 20px;
@@ -128,36 +124,99 @@
       }
 
       .keypad,
-      .types {
+      .typeGrid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
         gap: 6px;
       }
 
-      .types {
+      .keypad {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .typeGrid {
+        min-height: 0;
         grid-template-columns: repeat(2, 1fr);
+        align-content: start;
+        overflow-y: auto;
       }
 
       button {
+        min-width: 0;
         height: 34px;
         border: 0;
         border-radius: 6px;
-        background: #223229;
-        color: #f4f2e9;
+        background: #263142;
+        color: #ffffff;
         font-size: 11px;
         font-weight: 900;
       }
 
       .key {
         height: 40px;
-        border: 1px solid #2c5d44;
+        border: 1px solid #6f7d8f;
+        background: #ffffff;
+        color: #171b25;
         font-size: 17px;
       }
 
-      .key.primary,
-      .type.active {
-        background: #2de38c;
-        color: #07110c;
+      .key.primary {
+        background: #ffb703;
+        color: #171b25;
+      }
+
+      .typeButton {
+        position: relative;
+        height: 46px;
+        padding: 7px 6px 5px;
+        border: 2px solid #171b25;
+        background: var(--type-color, #8a8178);
+        color: #ffffff;
+        box-shadow: 3px 3px 0 #171b25;
+        display: grid;
+        align-content: center;
+        gap: 2px;
+        text-align: left;
+      }
+
+      .typeButton.light {
+        color: #171b25;
+      }
+
+      .typeName,
+      .typeCount {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .typeName {
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .typeCount {
+        opacity: 0.9;
+        font-size: 9px;
+        line-height: 1;
+      }
+
+      .backButton {
+        width: 30px;
+        height: 30px;
+        border: 2px solid #171b25;
+        background: #ffb703;
+        color: #171b25;
+        font-size: 16px;
+        box-shadow: 2px 2px 0 #171b25;
+      }
+
+      .detailHead {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
       }
 
       .items {
@@ -167,25 +226,36 @@
       }
 
       .item {
-        margin: 0 0 5px;
-        padding: 6px;
+        margin: 0 0 6px;
+        padding: 7px;
+        border: 1px solid #c9cfd6;
+        border-left: 5px solid var(--type-color, #8a8178);
         border-radius: 6px;
-        background: #213229;
-        color: #f4f2e9;
+        background: #f8fafb;
+        color: #171b25;
         font-size: 11px;
         line-height: 1.18;
         word-break: break-word;
       }
 
+      .itemTitle {
+        display: block;
+        margin-bottom: 2px;
+        font-weight: 900;
+      }
+
+      .itemBody {
+        color: #4d5968;
+      }
+
       .item.empty {
-        border: 1px solid #2c5d44;
-        color: #a8d9bf;
-        background: transparent;
+        border-left-color: #9aa3ad;
+        color: #4d5968;
       }
 
       .status {
         min-height: 13px;
-        color: #a8d9bf;
+        color: #4d5968;
         font-size: 10px;
         white-space: nowrap;
         overflow: hidden;
@@ -228,17 +298,32 @@
         </footer>
       </section>
 
-      <section class="view" id="boardView">
+      <section class="view" id="typesView">
         <header>
-          <h1>Drops</h1>
-          <span class="badge" id="selectedBadge">Ideas</span>
+          <h1>Tipos</h1>
+          <span class="badge" id="typeBadge">0 drops</span>
         </header>
 
-        <section class="types" id="types"></section>
+        <section class="typeGrid" id="types"></section>
+
+        <footer>
+          <div class="status" id="typesStatus">listo</div>
+        </footer>
+      </section>
+
+      <section class="view" id="detailView">
+        <header>
+          <div class="detailHead">
+            <button class="backButton" id="backBtn" aria-label="Volver">&lt;</button>
+            <h1 id="detailTitle">Drops</h1>
+          </div>
+          <span class="badge" id="detailBadge">0</span>
+        </header>
+
         <section class="panel items" id="items"></section>
 
         <footer>
-          <div class="status" id="boardStatus">listo</div>
+          <div class="status" id="detailStatus">listo</div>
         </footer>
       </section>
     </main>
@@ -248,12 +333,38 @@
       const CONFIG_BOOTSTRAP_ENDPOINT = "https://n8n.calvonavarro.com/webhook/rabbit-r1-config-pin";
       const BOARD_ENDPOINT = "https://n8n.calvonavarro.com/webhook/rabbit-r1-drops-board-v0";
 
+      const FALLBACK_TYPES = [
+        "Ideas",
+        "Trabajo",
+        "Personal",
+        "Aprendizaje",
+        "Casa",
+        "Salud",
+        "Finanzas",
+        "Relaciones",
+        "Foto"
+      ];
+
+      const NOTION_COLORS = {
+        default: "#8a8178",
+        gray: "#78716c",
+        brown: "#9a674d",
+        orange: "#d97706",
+        yellow: "#ca8a04",
+        green: "#16a34a",
+        blue: "#2563eb",
+        purple: "#7c3aed",
+        pink: "#db2777",
+        red: "#dc2626"
+      };
+
       const state = {
         config: null,
         sessionId: "",
         pin: "",
+        mode: "setup",
         selectedType: "Ideas",
-        types: ["Ideas", "Trabajo", "Personal", "Aprendizaje", "Casa", "Salud", "Finanzas", "Relaciones", "Foto"],
+        types: FALLBACK_TYPES.map((name) => ({ name, count: 0, notionColor: "default", color: NOTION_COLORS.default })),
         items: [],
         recorder: null,
         audioChunks: [],
@@ -262,14 +373,19 @@
       };
 
       const setupView = document.getElementById("setupView");
-      const boardView = document.getElementById("boardView");
+      const typesView = document.getElementById("typesView");
+      const detailView = document.getElementById("detailView");
       const pinDisplay = document.getElementById("pinDisplay");
       const keypad = document.getElementById("keypad");
       const setupStatus = document.getElementById("setupStatus");
-      const boardStatus = document.getElementById("boardStatus");
+      const typesStatus = document.getElementById("typesStatus");
+      const detailStatus = document.getElementById("detailStatus");
+      const typeBadge = document.getElementById("typeBadge");
+      const detailBadge = document.getElementById("detailBadge");
+      const detailTitle = document.getElementById("detailTitle");
       const typesEl = document.getElementById("types");
       const itemsEl = document.getElementById("items");
-      const selectedBadge = document.getElementById("selectedBadge");
+      const backBtn = document.getElementById("backBtn");
 
       function encode(value) {
         return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
@@ -312,26 +428,64 @@
         }
       }
 
-      function setSetupStatus(text) {
-        setupStatus.textContent = text;
-      }
-
-      function setBoardStatus(text) {
-        boardStatus.textContent = text;
+      function setStatus(text) {
+        const clean = String(text || "").trim();
+        if (state.mode === "setup") setupStatus.textContent = clean;
+        if (state.mode === "types") typesStatus.textContent = clean;
+        if (state.mode === "detail") detailStatus.textContent = clean;
       }
 
       function showSetup() {
         setupView.classList.add("active");
-        boardView.classList.remove("active");
+        typesView.classList.remove("active");
+        detailView.classList.remove("active");
+        state.mode = "setup";
         state.pin = "";
         updatePinDisplay();
       }
 
-      function showBoard() {
+      function showTypes() {
         setupView.classList.remove("active");
-        boardView.classList.add("active");
+        typesView.classList.add("active");
+        detailView.classList.remove("active");
+        state.mode = "types";
         renderTypes();
+      }
+
+      function showDetail() {
+        setupView.classList.remove("active");
+        typesView.classList.remove("active");
+        detailView.classList.add("active");
+        state.mode = "detail";
         renderItems();
+      }
+
+      function normalizeType(entry) {
+        if (typeof entry === "string") {
+          return { name: entry, count: 0, notionColor: "default", color: NOTION_COLORS.default };
+        }
+
+        const notionColor = String(entry.notionColor || entry.colorName || "default");
+        const color = String(entry.color || NOTION_COLORS[notionColor] || NOTION_COLORS.default);
+        return {
+          name: String(entry.name || entry.area || "").trim(),
+          count: Number(entry.count || 0),
+          notionColor,
+          color
+        };
+      }
+
+      function getTypeMeta(name = state.selectedType) {
+        return state.types.find((type) => type.name === name) || normalizeType(name);
+      }
+
+      function isLightColor(hex) {
+        const clean = String(hex || "").replace("#", "");
+        if (clean.length !== 6) return false;
+        const r = parseInt(clean.slice(0, 2), 16);
+        const g = parseInt(clean.slice(2, 4), 16);
+        const b = parseInt(clean.slice(4, 6), 16);
+        return (r * 299 + g * 587 + b * 114) / 1000 > 145;
       }
 
       function updatePinDisplay() {
@@ -349,7 +503,7 @@
         }
 
         updatePinDisplay();
-        setSetupStatus(state.pin.length ? "marcando..." : "sin configurar");
+        setupStatus.textContent = state.pin.length ? "marcando..." : "sin configurar";
 
         if (state.pin.length === 4) {
           fetchConfigByPin();
@@ -357,7 +511,7 @@
       }
 
       async function fetchConfigByPin() {
-        setSetupStatus("conectando...");
+        setupStatus.textContent = "conectando...";
 
         try {
           const response = await fetch(CONFIG_BOOTSTRAP_ENDPOINT, {
@@ -374,38 +528,79 @@
 
           state.config = data.config || data;
           ensureSessionId();
-          showBoard();
-          await loadDrops(state.selectedType);
+          showTypes();
+          await refreshBoard();
         } catch (error) {
           state.pin = "";
           updatePinDisplay();
-          setSetupStatus(error.message || "PIN invalido");
+          setupStatus.textContent = error.message || "PIN invalido";
         }
       }
 
       function renderTypes() {
-        selectedBadge.textContent = state.selectedType;
+        const visibleTypes = state.types.filter((type) => type.name && type.count > 0);
+        const total = visibleTypes.reduce((sum, type) => sum + type.count, 0);
+        typeBadge.textContent = `${total} drops`;
         typesEl.innerHTML = "";
-        for (const type of state.types) {
+
+        if (!visibleTypes.length) {
+          const empty = document.createElement("p");
+          empty.className = "item empty";
+          empty.textContent = "Sin drops.";
+          typesEl.appendChild(empty);
+          return;
+        }
+
+        for (const type of visibleTypes) {
           const button = document.createElement("button");
-          button.className = `type${type === state.selectedType ? " active" : ""}`;
-          button.textContent = type;
-          button.addEventListener("click", () => loadDrops(type));
+          button.className = `typeButton${isLightColor(type.color) ? " light" : ""}`;
+          button.style.setProperty("--type-color", type.color);
+          button.innerHTML = '<span class="typeName"></span><span class="typeCount"></span>';
+          button.querySelector(".typeName").textContent = type.name;
+          button.querySelector(".typeCount").textContent = `${type.count} drops`;
+          button.addEventListener("click", () => openType(type.name));
           typesEl.appendChild(button);
         }
       }
 
       function renderItems() {
+        const meta = getTypeMeta();
+        detailTitle.textContent = meta.name || "Drops";
+        detailBadge.textContent = `${state.items.length}`;
+        itemsEl.style.setProperty("--type-color", meta.color);
         itemsEl.innerHTML = "";
-        const items = state.items.length ? state.items : [{ title: "Sin drops", observations: "PTT para crear uno nuevo." }];
+
+        const items = state.items.length
+          ? state.items
+          : [{ title: "Sin drops", observations: "Long press para crear uno nuevo." }];
 
         for (const item of items) {
           const el = document.createElement("p");
           el.className = `item${state.items.length ? "" : " empty"}`;
-          el.textContent = item.observations ? `${item.title}: ${item.observations}` : item.title;
+          el.style.setProperty("--type-color", meta.color);
+          const title = document.createElement("span");
+          title.className = "itemTitle";
+          title.textContent = item.title || "Drop";
+          el.appendChild(title);
+
+          if (item.observations) {
+            const body = document.createElement("span");
+            body.className = "itemBody";
+            body.textContent = item.observations;
+            el.appendChild(body);
+          }
           itemsEl.appendChild(el);
         }
         itemsEl.scrollTop = 0;
+      }
+
+      function applyBoardData(data) {
+        if (Array.isArray(data.types)) {
+          state.types = data.types.map(normalizeType).filter((type) => type.name && type.count > 0);
+        }
+
+        if (data.area) state.selectedType = data.area;
+        state.items = Array.isArray(data.items) ? data.items : [];
       }
 
       async function postBoard(payload) {
@@ -445,22 +640,45 @@
         return data;
       }
 
-      async function loadDrops(type) {
-        state.selectedType = type || state.selectedType;
-        renderTypes();
-        setBoardStatus("cargando...");
+      async function refreshBoard() {
+        setStatus("cargando...");
 
         try {
           const data = await postBoard({ action: "list" });
           if (!data) return;
-          state.types = data.types && data.types.length ? data.types : state.types;
-          state.items = Array.isArray(data.items) ? data.items : [];
+          applyBoardData(data);
+          if (!state.types.some((type) => type.name === state.selectedType) && state.types[0]) {
+            state.selectedType = state.types[0].name;
+          }
           renderTypes();
-          renderItems();
-          setBoardStatus(data.reply || "lista actualizada");
+          if (state.mode === "detail") renderItems();
+          setStatus(data.reply || "actualizado");
         } catch (error) {
-          setBoardStatus(error.message || "fallo de red");
+          setStatus(error.message || "fallo de red");
         }
+      }
+
+      async function openType(typeName) {
+        state.selectedType = typeName;
+        state.items = [];
+        showDetail();
+        detailStatus.textContent = "cargando...";
+
+        try {
+          const data = await postBoard({ action: "list", area: typeName });
+          if (!data) return;
+          applyBoardData(data);
+          showDetail();
+          detailStatus.textContent = data.reply || "lista actualizada";
+        } catch (error) {
+          detailStatus.textContent = error.message || "fallo de red";
+        }
+      }
+
+      function goBack() {
+        if (state.mode !== "detail") return;
+        showTypes();
+        typesStatus.textContent = "listo";
       }
 
       function getSupportedAudioMimeType() {
@@ -481,7 +699,7 @@
       async function startVoice() {
         if (!state.config || state.listening) return;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
-          setBoardStatus("micro no disponible");
+          setStatus("micro no disponible");
           return;
         }
 
@@ -502,7 +720,7 @@
             const blob = new Blob(state.audioChunks, { type: state.audioMimeType });
             state.audioChunks = [];
             if (!blob.size) {
-              setBoardStatus("audio vacio");
+              setStatus("audio vacio");
               return;
             }
             await sendInstruction(blob);
@@ -510,15 +728,15 @@
 
           state.recorder.start();
           state.listening = true;
-          setBoardStatus("escuchando...");
+          setStatus("escuchando...");
         } catch (error) {
-          setBoardStatus("micro denegado");
+          setStatus("micro denegado");
         }
       }
 
       function stopVoice() {
         if (!state.recorder || !state.listening) return;
-        setBoardStatus("procesando...");
+        setStatus("procesando...");
         state.recorder.stop();
       }
 
@@ -533,14 +751,21 @@
             audioName: "drop-board-r1.webm"
           });
           if (!data) return;
-          state.types = data.types && data.types.length ? data.types : state.types;
-          state.selectedType = data.area || state.selectedType;
-          state.items = Array.isArray(data.items) ? data.items : [];
-          renderTypes();
-          renderItems();
-          setBoardStatus(data.reply || "actualizado");
+          applyBoardData(data);
+          showDetail();
+          detailStatus.textContent = data.reply || "actualizado";
         } catch (error) {
-          setBoardStatus(error.message || "fallo de red");
+          setStatus(error.message || "fallo de red");
+        }
+      }
+
+      function handleSideClick() {
+        if (state.mode === "detail") {
+          goBack();
+          return;
+        }
+        if (state.mode === "types") {
+          typesStatus.textContent = "long press: PTT";
         }
       }
 
@@ -550,6 +775,8 @@
         pressPinKey(button.dataset.key || "");
       });
 
+      backBtn.addEventListener("click", goBack);
+      window.addEventListener("sideClick", handleSideClick);
       window.addEventListener("longPressStart", startVoice);
       window.addEventListener("longPressEnd", stopVoice);
 

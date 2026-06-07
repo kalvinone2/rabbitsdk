@@ -54,6 +54,11 @@
         gap: 6px;
       }
 
+      #cameraView {
+        grid-template-rows: auto 1fr auto;
+        gap: 6px;
+      }
+
       header {
         display: flex;
         align-items: center;
@@ -187,6 +192,47 @@
         overflow-y: auto;
       }
 
+      .cameraPanel {
+        position: relative;
+        display: grid;
+        place-items: center;
+        background: #050806;
+      }
+
+      .cameraPanel video,
+      .cameraPanel img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .cameraPanel img {
+        display: none;
+      }
+
+      .cameraPanel.captured video {
+        display: none;
+      }
+
+      .cameraPanel.captured img {
+        display: block;
+      }
+
+      .cameraHint {
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        bottom: 6px;
+        padding: 5px 6px;
+        border: 1px solid rgba(45, 227, 140, 0.45);
+        border-radius: 6px;
+        background: rgba(15, 20, 17, 0.72);
+        color: #f4f2e9;
+        font-size: 10px;
+        font-weight: 800;
+        text-align: center;
+      }
+
       .msg {
         margin: 0 0 5px;
         padding: 6px;
@@ -281,6 +327,23 @@
           <div class="status" id="chatStatus">listo</div>
         </footer>
       </section>
+
+      <section class="view" id="cameraView">
+        <header>
+          <h1>Camara</h1>
+          <span class="badge" id="cameraBadge">preview</span>
+        </header>
+
+        <section class="panel cameraPanel" id="cameraPanel">
+          <video id="cameraVideo" muted playsinline></video>
+          <img id="photoPreview" alt="Foto capturada" />
+          <div class="cameraHint" id="cameraHint">tap foto</div>
+        </section>
+
+        <footer>
+          <div class="status" id="cameraStatus">iniciando...</div>
+        </footer>
+      </section>
     </main>
 
     <script>
@@ -299,6 +362,11 @@
         recorder: null,
         audioChunks: [],
         audioMimeType: "",
+        cameraStream: null,
+        photoDataUrl: "",
+        mode: "setup",
+        lastSideClickAt: 0,
+        lastShakeAt: 0,
         finalTranscript: "",
         interimTranscript: "",
         lastReply: ""
@@ -306,10 +374,17 @@
 
       const setupView = document.getElementById("setupView");
       const chatView = document.getElementById("chatView");
+      const cameraView = document.getElementById("cameraView");
       const pinDisplay = document.getElementById("pinDisplay");
       const keypad = document.getElementById("keypad");
       const setupStatus = document.getElementById("setupStatus");
       const chatStatus = document.getElementById("chatStatus");
+      const cameraStatus = document.getElementById("cameraStatus");
+      const cameraBadge = document.getElementById("cameraBadge");
+      const cameraPanel = document.getElementById("cameraPanel");
+      const cameraVideo = document.getElementById("cameraVideo");
+      const photoPreview = document.getElementById("photoPreview");
+      const cameraHint = document.getElementById("cameraHint");
       const messagesEl = document.getElementById("messages");
       const profileName = document.getElementById("profileName");
 
@@ -373,6 +448,10 @@
         chatStatus.textContent = text;
       }
 
+      function setCameraStatus(text) {
+        cameraStatus.textContent = text;
+      }
+
       function ensureSessionId() {
         if (!state.sessionId) {
           state.sessionId = `r1-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -383,6 +462,8 @@
       function showSetup() {
         setupView.classList.add("active");
         chatView.classList.remove("active");
+        cameraView.classList.remove("active");
+        state.mode = "setup";
         state.pin = "";
         updatePinDisplay();
       }
@@ -390,8 +471,17 @@
       function showChat() {
         setupView.classList.remove("active");
         chatView.classList.add("active");
+        cameraView.classList.remove("active");
+        state.mode = "chat";
         profileName.textContent = state.config.name || "n8n";
         renderMessages();
+      }
+
+      function showCamera() {
+        setupView.classList.remove("active");
+        chatView.classList.remove("active");
+        cameraView.classList.add("active");
+        state.mode = "camera";
       }
 
       function parseConfig(raw) {
@@ -585,8 +675,186 @@
         });
       }
 
+      async function openCameraMode() {
+        if (!state.config) {
+          setSetupStatus("introduce PIN");
+          return;
+        }
+
+        showCamera();
+        state.photoDataUrl = "";
+        photoPreview.removeAttribute("src");
+        cameraPanel.classList.remove("captured");
+        cameraBadge.textContent = "preview";
+        cameraHint.textContent = "tap foto";
+        setCameraStatus("abriendo camara...");
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setCameraStatus("camara no disponible");
+          return;
+        }
+
+        try {
+          await stopCameraStream();
+          state.cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false
+          });
+          cameraVideo.srcObject = state.cameraStream;
+          await cameraVideo.play();
+          setCameraStatus("tap pantalla");
+        } catch (error) {
+          setCameraStatus("camara denegada");
+        }
+      }
+
+      async function stopCameraStream() {
+        if (state.cameraStream) {
+          state.cameraStream.getTracks().forEach((track) => track.stop());
+          state.cameraStream = null;
+        }
+        cameraVideo.srcObject = null;
+      }
+
+      async function closeCameraMode() {
+        await stopCameraStream();
+        state.photoDataUrl = "";
+        photoPreview.removeAttribute("src");
+        cameraPanel.classList.remove("captured");
+        if (state.config) {
+          showChat();
+          setChatStatus("listo");
+        } else {
+          showSetup();
+        }
+      }
+
+      function capturePhoto() {
+        if (state.mode !== "camera" || state.photoDataUrl) return;
+        if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+          setCameraStatus("sin preview");
+          return;
+        }
+
+        const canvas = document.createElement("canvas");
+        const maxWidth = 960;
+        const scale = Math.min(1, maxWidth / cameraVideo.videoWidth);
+        canvas.width = Math.max(1, Math.round(cameraVideo.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(cameraVideo.videoHeight * scale));
+        const context = canvas.getContext("2d");
+        context.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+        state.photoDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        photoPreview.src = state.photoDataUrl;
+        cameraPanel.classList.add("captured");
+        cameraBadge.textContent = "foto";
+        cameraHint.textContent = "shake borra / side guarda";
+        setCameraStatus("foto lista");
+      }
+
+      function clearPhoto() {
+        if (state.mode !== "camera" || !state.photoDataUrl) return;
+        state.photoDataUrl = "";
+        photoPreview.removeAttribute("src");
+        cameraPanel.classList.remove("captured");
+        cameraBadge.textContent = "preview";
+        cameraHint.textContent = "tap foto";
+        setCameraStatus("borrada");
+      }
+
+      async function savePhoto() {
+        if (state.mode !== "camera") return;
+        if (!state.photoDataUrl) {
+          setCameraStatus("haz foto primero");
+          return;
+        }
+        if (!state.config) {
+          showSetup();
+          return;
+        }
+
+        ensureSessionId();
+        setCameraStatus("guardando...");
+        const imageBase64 = state.photoDataUrl.includes(",") ? state.photoDataUrl.split(",").pop() : state.photoDataUrl;
+        const payload = {
+          token: state.config.token,
+          message: "",
+          inputMode: "image",
+          imageBase64,
+          imageMimeType: "image/jpeg",
+          imageName: "rabbit-r1-photo.jpg",
+          lang: state.config.lang || "es-ES",
+          sessionId: state.sessionId,
+          source: "rabbit-r1-creation",
+          sentAt: new Date().toISOString()
+        };
+
+        try {
+          const response = await fetch(state.config.endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: new URLSearchParams({ payload: JSON.stringify(payload) })
+          });
+
+          const raw = await response.text();
+          let data = raw;
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (error) {
+            data = raw || { reply: `HTTP ${response.status}` };
+          }
+
+          if (response.status === 401 || response.status === 403 || isRevoked(data)) {
+            await revokeLocalConfig();
+            return;
+          }
+
+          if (!response.ok) {
+            setCameraStatus(`HTTP ${response.status}`);
+            return;
+          }
+
+          const reply = extractReply(data);
+          addMessage("bot", reply);
+          speakText(reply);
+          await closeCameraMode();
+          setChatStatus("foto guardada");
+        } catch (error) {
+          setCameraStatus("fallo de red");
+        }
+      }
+
+      function initCameraShake() {
+        if (!window.creationSensors || !window.creationSensors.accelerometer) return;
+
+        let previous = null;
+        window.creationSensors.accelerometer.start((data) => {
+          if (state.mode !== "camera" || !state.photoDataUrl) {
+            previous = data;
+            return;
+          }
+
+          if (!previous) {
+            previous = data;
+            return;
+          }
+
+          const dx = Number(data.x || 0) - Number(previous.x || 0);
+          const dy = Number(data.y || 0) - Number(previous.y || 0);
+          const dz = Number(data.z || 0) - Number(previous.z || 0);
+          const delta = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          previous = data;
+
+          const now = Date.now();
+          if (delta > 18 && now - state.lastShakeAt > 800) {
+            state.lastShakeAt = now;
+            clearPhoto();
+          }
+        }, { frequency: 30 });
+      }
+
       async function startVoice() {
         if (state.listening) return;
+        if (state.mode !== "chat") return;
         if (!state.config) {
           setSetupStatus("introduce PIN");
           return;
@@ -791,19 +1059,55 @@
         await revokeLocalConfig();
       }
 
+      function handleSideClick() {
+        if (state.mode === "camera") {
+          savePhoto();
+          return;
+        }
+
+        if (state.mode !== "chat") return;
+
+        const now = Date.now();
+        if (now - state.lastSideClickAt < 450) {
+          state.lastSideClickAt = 0;
+          openCameraMode();
+          return;
+        }
+
+        state.lastSideClickAt = now;
+        setChatStatus("doble tap: camara");
+      }
+
+      function handleLongPressStart() {
+        if (state.mode === "camera") {
+          closeCameraMode();
+          return;
+        }
+
+        startVoice();
+      }
+
+      function handleLongPressEnd() {
+        if (state.mode !== "chat") return;
+        stopVoice();
+      }
+
       keypad.addEventListener("click", (event) => {
         const button = event.target.closest("button[data-key]");
         if (!button) return;
         pressPinKey(button.dataset.key || "");
       });
 
-      window.addEventListener("longPressStart", startVoice);
-      window.addEventListener("longPressEnd", stopVoice);
+      cameraPanel.addEventListener("click", capturePhoto);
+      window.addEventListener("sideClick", handleSideClick);
+      window.addEventListener("longPressStart", handleLongPressStart);
+      window.addEventListener("longPressEnd", handleLongPressEnd);
 
       async function boot() {
         state.config = null;
         state.history = await getStored(HISTORY_KEY, []);
         state.sessionId = await getStored(SESSION_KEY, "");
+        initCameraShake();
         showSetup();
       }
 

@@ -55,19 +55,25 @@ Si publicas en GitHub Pages como proyecto:
 - `https://kalvinone2.github.io/rabbitsdk/apps/instantsfun-r1/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/n8n-chat-r1/`
 
-## Configuracion privada de n8n Chat R1
+## Configuracion privada de n8n Chat R1 / Mind Drop
 
 La app `n8n-chat-r1` es publica, pero no contiene secretos. En el primer arranque escanea un QR privado con:
 
 ```json
-{"endpoint":"https://tu-n8n.com/webhook/rabbit-r1-notion-v0","token":"r1_token_privado","name":"n8n personal","lang":"es-ES","speak":true}
+{"endpoint":"https://tu-n8n.com/webhook/rabbit-r1-notion-v0","token":"r1_token_privado","name":"Mind Drop","lang":"es-ES","speak":true}
 ```
 
 El token se guarda en `creationStorage.secure` cuando esta disponible, con fallback a `localStorage` en navegador normal. Las peticiones a n8n se envian como `application/x-www-form-urlencoded` con un campo `payload` JSON para reducir problemas de CORS.
 
 En n8n, si quieres revocar un token, responde con `{"revoked":true}`, `{"status":"revoked"}` o HTTP `401/403`; la app borrara la configuracion local y volvera al setup.
 
-Hay un workflow importable de prueba en `workflows/rabbit-r1-notion-v0.workflow.json`. Recibe texto desde el Rabbit, valida token, crea una fila en una base de datos de Notion y responde a la app.
+Hay un workflow importable de prueba en `workflows/rabbit-r1-notion-v0.workflow.json`. Recibe texto desde el Rabbit, valida token, clasifica el mensaje con `gpt-4.1-nano` y crea una fila en la BBDD `Drops` de Notion dentro de `Mind Drop`.
+
+El workflow publico usa placeholders para secretos:
+
+- `REPLACE_WITH_RABBIT_TOKEN`
+- `REPLACE_WITH_OPENAI_API_KEY`
+- `REPLACE_WITH_NOTION_CREDENTIAL_ID`
 
 ## Generador QR
 

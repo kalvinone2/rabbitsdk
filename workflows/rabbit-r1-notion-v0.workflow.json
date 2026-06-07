@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Setup\n\nMind Drop creado en Notion.\n\n- Page: https://app.notion.com/p/378c5593cd9981d78480e7b0b6b02992\n- Database: https://app.notion.com/p/a3251e4bbb7f4f0bb70e81ffdd16eb0e\n- Data source: collection://c8b9155c-dc30-4f1b-88fe-8ac8af2f03ce\n\nPendiente en n8n:\n1. Configura la credencial Notion en `Create Mind Drop row`.\n2. Sustituye `REPLACE_WITH_OPENAI_API_KEY` en `AI classify drop` por una API key de OpenAI.\n3. Activa el workflow.\n\nEl token Rabbit se valida en `Validate Rabbit token` y no debe ser la API key de n8n."
+        "content": "## Setup\n\nMind Drop creado en Notion.\n\n- Page: https://app.notion.com/p/378c5593cd9981d78480e7b0b6b02992\n- Database: https://app.notion.com/p/a3251e4bbb7f4f0bb70e81ffdd16eb0e\n- Data source: collection://c8b9155c-dc30-4f1b-88fe-8ac8af2f03ce\n\nPendiente en n8n:\n1. Configura la credencial Notion en `Create Mind Drop row`.\n2. Sustituye `REPLACE_WITH_OPENAI_API_KEY` en `OpenAI Whisper transcription` y `AI classify drop` por una API key de OpenAI.\n3. Activa el workflow.\n\nEl token Rabbit se valida en `Validate Rabbit token` y no debe ser la API key de n8n."
       },
       "id": "ea98f6e2-e0f4-4f2f-9d3e-9a6d9b773f79",
       "name": "Setup note",
@@ -33,7 +33,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const expectedToken = 'REPLACE_WITH_RABBIT_TOKEN';\n\nfunction parsePayload(input) {\n  const direct = input.payload ?? input.body?.payload ?? input.body ?? input;\n\n  if (typeof direct === 'string') {\n    try {\n      return JSON.parse(direct);\n    } catch (error) {\n      return { message: direct };\n    }\n  }\n\n  return direct || {};\n}\n\nconst payload = parsePayload($json);\nconst token = String(payload.token || payload.apiKey || payload.key || '');\nconst tokenConfigured = expectedToken && !expectedToken.startsWith('REPLACE_WITH_');\nconst valid = Boolean(tokenConfigured && token === expectedToken);\nconst message = String(payload.message || payload.text || payload.transcript || '').trim();\nconst now = new Date().toISOString();\n\nreturn [{\n  json: {\n    valid,\n    revoked: !valid,\n    status: valid ? 'ok' : 'revoked',\n    reply: valid ? 'Procesando Mind Drop.' : 'Token revocado o invalido.',\n    message,\n    inputMode: String(payload.inputMode || 'text'),\n    sessionId: String(payload.sessionId || ''),\n    source: String(payload.source || 'rabbit-r1-creation'),\n    sentAt: payload.sentAt || now,\n    receivedAt: now\n  }\n}];"
+        "jsCode": "const expectedToken = 'REPLACE_WITH_RABBIT_TOKEN';\n\nfunction parsePayload(input) {\n  const direct = input.payload ?? input.body?.payload ?? input.body ?? input;\n\n  if (typeof direct === 'string') {\n    try {\n      return JSON.parse(direct);\n    } catch (error) {\n      return { message: direct };\n    }\n  }\n\n  return direct || {};\n}\n\nconst payload = parsePayload($json);\nconst token = String(payload.token || payload.apiKey || payload.key || '');\nconst tokenConfigured = expectedToken && !expectedToken.startsWith('REPLACE_WITH_');\nconst valid = Boolean(tokenConfigured && token === expectedToken);\nconst message = String(payload.message || payload.text || payload.transcript || '').trim();\nconst audioBase64 = String(payload.audioBase64 || payload.audio || '').trim();\nconst now = new Date().toISOString();\n\nreturn [{\n  json: {\n    valid,\n    revoked: !valid,\n    status: valid ? 'ok' : 'revoked',\n    reply: valid ? 'Procesando Mind Drop.' : 'Token revocado o invalido.',\n    message,\n    inputMode: String(payload.inputMode || (audioBase64 ? 'audio' : 'text')),\n    audioBase64,\n    audioMimeType: String(payload.audioMimeType || 'audio/webm'),\n    audioName: String(payload.audioName || 'rabbit-r1.webm'),\n    lang: String(payload.lang || payload.language || 'es-ES'),\n    sessionId: String(payload.sessionId || ''),\n    source: String(payload.source || 'rabbit-r1-creation'),\n    sentAt: payload.sentAt || now,\n    receivedAt: now\n  }\n}];"
       },
       "id": "0c53caf3-dbb8-4111-9a5e-d3bfce7ca338",
       "name": "Validate Rabbit token",
@@ -80,15 +80,15 @@
     },
     {
       "parameters": {
-        "jsCode": "const openAiApiKey = 'REPLACE_WITH_OPENAI_API_KEY';\nconst allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal'];\nconst message = String($json.message || '').trim();\n\nfunction cleanArea(value) {\n  const normalized = String(value || '').trim();\n  return allowedAreas.includes(normalized) ? normalized : 'Personal';\n}\n\nfunction fallback(reason = '') {\n  const title = message ? message.slice(0, 80) : 'Mind Drop';\n  return [{\n    json: {\n      ...$json,\n      titulo: title,\n      area: 'Personal',\n      observaciones: message || 'Sin mensaje recibido.',\n      aiModel: 'fallback',\n      aiFallbackReason: reason\n    }\n  }];\n}\n\nif (!message) return fallback('empty_message');\nif (!openAiApiKey || openAiApiKey.startsWith('REPLACE_WITH_')) return fallback('missing_openai_key');\n\nconst system = [\n  'Eres un clasificador de capturas personales llamado Mind Drop.',\n  'Recibes una nota breve en espanol y devuelves solo JSON valido.',\n  'Campos obligatorios: titulo, area, observaciones.',\n  `area debe ser exactamente una de: ${allowedAreas.join(', ')}.`,\n  'titulo: maximo 80 caracteres, claro y util como titulo de pagina.',\n  'observaciones: reescribe el mensaje de forma clara y accionable en 1-3 frases.',\n  'Si hay duda entre areas, usa Personal. Si es una idea suelta, usa Ideas.'\n].join(' ');\n\ntry {\n  const response = await fetch('https://api.openai.com/v1/chat/completions', {\n    method: 'POST',\n    headers: {\n      'Authorization': `Bearer ${openAiApiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      model: 'gpt-4.1-nano',\n      temperature: 0.1,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: system },\n        { role: 'user', content: message }\n      ]\n    })\n  });\n\n  const data = await response.json();\n  if (!response.ok) return fallback(`openai_http_${response.status}`);\n\n  const content = data.choices?.[0]?.message?.content || '{}';\n  const parsed = JSON.parse(content);\n  const titulo = String(parsed.titulo || parsed.title || message).trim().slice(0, 80) || 'Mind Drop';\n  const area = cleanArea(parsed.area);\n  const observaciones = String(parsed.observaciones || parsed.notes || parsed.observation || message).trim();\n\n  return [{\n    json: {\n      ...$json,\n      titulo,\n      area,\n      observaciones,\n      aiModel: 'gpt-4.1-nano'\n    }\n  }];\n} catch (error) {\n  return fallback(error.message || 'openai_error');\n}"
+        "jsCode": "const openAiApiKey = 'REPLACE_WITH_OPENAI_API_KEY';\nconst allowedAreas = ['Salud', 'Trabajo', 'Finanzas', 'Relaciones', 'Casa', 'Aprendizaje', 'Ideas', 'Personal'];\nconst message = String($json.message || '').trim();\n\nfunction cleanArea(value) {\n  const normalized = String(value || '').trim();\n  return allowedAreas.includes(normalized) ? normalized : 'Personal';\n}\n\nfunction fallback(reason = '') {\n  const title = message ? message.slice(0, 80) : 'Mind Drop';\n  const transcriptionNote = $json.transcriptionError ? `Error de transcripcion: ${$json.transcriptionError}` : '';\n  return [{\n    json: {\n      ...$json,\n      titulo: title,\n      area: 'Personal',\n      observaciones: message || transcriptionNote || 'Sin mensaje recibido.',\n      aiModel: 'fallback',\n      aiFallbackReason: reason || $json.transcriptionError || ''\n    }\n  }];\n}\n\nif (!message) return fallback('empty_message');\nif (!openAiApiKey || openAiApiKey.startsWith('REPLACE_WITH_')) return fallback('missing_openai_key');\n\nconst system = [\n  'Eres un clasificador de capturas personales llamado Mind Drop.',\n  'Recibes una nota breve en espanol y devuelves solo JSON valido.',\n  'Campos obligatorios: titulo, area, observaciones.',\n  `area debe ser exactamente una de: ${allowedAreas.join(', ')}.`,\n  'titulo: maximo 80 caracteres, claro y util como titulo de pagina.',\n  'observaciones: reescribe el mensaje de forma clara y accionable en 1-3 frases.',\n  'Si hay duda entre areas, usa Personal. Si es una idea suelta, usa Ideas.'\n].join(' ');\n\ntry {\n  const data = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      'Authorization': `Bearer ${openAiApiKey}`,\n      'Content-Type': 'application/json'\n    },\n    body: {\n      model: 'gpt-4.1-nano',\n      temperature: 0.1,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: system },\n        { role: 'user', content: message }\n      ]\n    },\n    json: true\n  });\n\n  const content = data.choices?.[0]?.message?.content || '{}';\n  const parsed = JSON.parse(content);\n  const titulo = String(parsed.titulo || parsed.title || message).trim().slice(0, 80) || 'Mind Drop';\n  const area = cleanArea(parsed.area);\n  const observaciones = String(parsed.observaciones || parsed.notes || parsed.observation || message).trim();\n\n  return [{\n    json: {\n      ...$json,\n      titulo,\n      area,\n      observaciones,\n      aiModel: 'gpt-4.1-nano'\n    }\n  }];\n} catch (error) {\n  return fallback(error.message || 'openai_error');\n}"
       },
       "id": "6d0be63b-d7cd-4f45-bf65-df941d43038a",
       "name": "AI classify drop",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        120,
-        20
+        1152,
+        32
       ]
     },
     {
@@ -123,8 +123,8 @@
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2.2,
       "position": [
-        380,
-        20
+        1408,
+        32
       ],
       "credentials": {
         "notionApi": {
@@ -135,15 +135,15 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    ok: true,\n    status: 'ok',\n    reply: `Guardado en Mind Drop: ${$json.Titulo || $json.titulo || 'nuevo drop'}.`,\n    notionPageId: $json.id || '',\n    area: $json.Area || $json.area || ''\n  }\n}];"
+        "jsCode": "const failed = Boolean($json.transcriptionError);\nconst title = $json.Titulo || $json.titulo || 'nuevo drop';\nconst transcript = String($json.transcript || $json.message || '').trim();\n\nreturn [{\n  json: {\n    ok: !failed,\n    status: failed ? 'transcription_error' : 'ok',\n    reply: failed\n      ? `No pude transcribir el audio: ${$json.transcriptionError}`\n      : `Guardado en Mind Drop: ${title}.`,\n    transcript,\n    notionPageId: $json.id || '',\n    area: $json.Area || $json.area || ''\n  }\n}];"
       },
       "id": "5a23cf31-a74e-41c5-9c32-6207b2bb7af3",
       "name": "Build OK response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        640,
-        20
+        1664,
+        32
       ]
     },
     {
@@ -156,8 +156,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        900,
-        20
+        1920,
+        32
       ]
     },
     {
@@ -187,6 +187,118 @@
       "position": [
         380,
         240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a8edb2c7-17d2-443f-8e22-a74775fd68db",
+              "leftValue": "={{ Boolean($json.audioBase64 && !$json.message) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b91fbb2f-e84d-4784-9c20-b839d05dd083",
+      "name": "Needs Whisper?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        120,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function withoutAudio(input) {\n  const { audioBase64, ...rest } = input;\n  return rest;\n}\n\nfunction extensionFor(mimeType) {\n  const clean = String(mimeType || '').split(';')[0].trim().toLowerCase();\n  if (clean.includes('mp4') || clean.includes('m4a')) return 'm4a';\n  if (clean.includes('ogg')) return 'ogg';\n  if (clean.includes('wav')) return 'wav';\n  if (clean.includes('mpeg') || clean.includes('mp3')) return 'mp3';\n  return 'webm';\n}\n\nconst base64 = String($json.audioBase64 || '').replace(/^data:.*?;base64,/, '');\nconst rawMimeType = String($json.audioMimeType || 'audio/webm');\nconst mimeType = rawMimeType.split(';')[0].trim() || 'audio/webm';\nconst extension = extensionFor(mimeType);\nconst fileName = String($json.audioName || `rabbit-r1.${extension}`).replace(/[^a-z0-9._-]/gi, '_');\nconst safeName = fileName.includes('.') ? fileName : `rabbit-r1.${extension}`;\n\nif (!base64) {\n  return [{\n    json: {\n      ...withoutAudio($json),\n      message: '',\n      transcript: '',\n      transcriptionError: 'empty_audio',\n      transcriptionModel: 'whisper-1'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...withoutAudio($json),\n    message: '',\n    transcript: '',\n    transcriptionModel: 'whisper-1'\n  },\n  binary: {\n    audio: {\n      data: base64,\n      mimeType,\n      fileName: safeName,\n      fileExtension: extension\n    }\n  }\n}];"
+      },
+      "id": "c9ed262d-0f9f-45fc-9f31-31df199be2cc",
+      "name": "Prepare audio binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_OPENAI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "audio"
+            },
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "language",
+              "value": "={{ ($json.lang || 'es').split('-')[0] }}"
+            },
+            {
+              "name": "response_format",
+              "value": "json"
+            },
+            {
+              "name": "temperature",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9a2807d8-e72e-4cc2-9caf-e42ba7afbc7a",
+      "name": "OpenAI Whisper transcription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        -120
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const transcript = String($json.text || $json.transcript || '').trim();\nconst errorMessage = $json.error?.message || $json.message || '';\n\nif (!transcript) {\n  return [{\n    json: {\n      ...$json,\n      message: '',\n      transcript: '',\n      transcriptionError: errorMessage || 'empty_transcript',\n      transcriptionModel: 'whisper-1'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...$json,\n    message: transcript,\n    transcript,\n    transcriptionModel: 'whisper-1'\n  }\n}];"
+      },
+      "id": "2d1948a2-cda3-4075-bd5a-f6c298f40463",
+      "name": "Normalize Whisper transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -120
       ]
     }
   ],
@@ -218,7 +330,7 @@
       "main": [
         [
           {
-            "node": "AI classify drop",
+            "node": "Needs Whisper?",
             "type": "main",
             "index": 0
           }
@@ -270,6 +382,57 @@
         [
           {
             "node": "Respond Revoked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Whisper?": {
+      "main": [
+        [
+          {
+            "node": "Prepare audio binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI classify drop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare audio binary": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Whisper transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Whisper transcription": {
+      "main": [
+        [
+          {
+            "node": "Normalize Whisper transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Whisper transcript": {
+      "main": [
+        [
+          {
+            "node": "AI classify drop",
             "type": "main",
             "index": 0
           }

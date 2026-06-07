@@ -328,6 +328,9 @@
         scanning: false,
         recognition: null,
         listening: false,
+        recorder: null,
+        audioChunks: [],
+        audioMimeType: "",
         finalTranscript: "",
         interimTranscript: "",
         lastReply: ""
@@ -629,82 +632,81 @@
         }
       }
 
-      function getSpeechRecognition() {
-        return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+      function getSupportedAudioMimeType() {
+        if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+        const types = [
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/ogg;codecs=opus",
+          "audio/mp4"
+        ];
+        return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
       }
 
-      function updateVoiceDraft() {
-        const text = [state.finalTranscript, state.interimTranscript].filter(Boolean).join(" ").trim();
-        if (text) messageInput.value = text;
+      function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(reader.error || new Error("audio invalido"));
+          reader.readAsDataURL(blob);
+        });
       }
 
-      function startVoice() {
+      async function startVoice() {
         if (state.listening) return;
-
-        const SpeechRecognition = getSpeechRecognition();
-        if (!SpeechRecognition) {
-          setChatStatus("STT no disponible");
-          addMessage("system", "Dictado no soportado aqui. Escribe el texto.");
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+          setChatStatus("micro no disponible");
+          addMessage("system", "Grabacion no soportada aqui. Escribe el texto.");
           return;
         }
 
-        state.finalTranscript = "";
-        state.interimTranscript = "";
-        state.recognition = new SpeechRecognition();
-        state.recognition.lang = state.config.lang || "es-ES";
-        state.recognition.continuous = true;
-        state.recognition.interimResults = true;
-
-        state.recognition.onresult = (event) => {
-          let interim = "";
-
-          for (let i = event.resultIndex; i < event.results.length; i += 1) {
-            const result = event.results[i];
-            const text = result[0] && result[0].transcript ? result[0].transcript.trim() : "";
-            if (!text) continue;
-
-            if (result.isFinal) {
-              state.finalTranscript = `${state.finalTranscript} ${text}`.trim();
-            } else {
-              interim = `${interim} ${text}`.trim();
-            }
-          }
-
-          state.interimTranscript = interim;
-          updateVoiceDraft();
-        };
-
-        state.recognition.onerror = (event) => {
-          setChatStatus(event.error ? `voz: ${event.error}` : "error voz");
-          state.listening = false;
-          voiceBtn.textContent = "Voz";
-        };
-
-        state.recognition.onend = () => {
-          state.listening = false;
-          voiceBtn.textContent = "Voz";
-          const text = messageInput.value.trim();
-          if (text) {
-            sendMessage(text, "voice");
-          } else {
-            setChatStatus("sin texto");
-          }
-        };
-
         try {
-          state.recognition.start();
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          const mimeType = getSupportedAudioMimeType();
+          state.audioChunks = [];
+          state.audioMimeType = mimeType || "audio/webm";
+          state.recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+          state.recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) state.audioChunks.push(event.data);
+          };
+
+          state.recorder.onerror = () => {
+            setChatStatus("error micro");
+            state.listening = false;
+            voiceBtn.textContent = "Voz";
+            stream.getTracks().forEach((track) => track.stop());
+          };
+
+          state.recorder.onstop = async () => {
+            state.listening = false;
+            voiceBtn.textContent = "Voz";
+            stream.getTracks().forEach((track) => track.stop());
+
+            const blob = new Blob(state.audioChunks, { type: state.audioMimeType });
+            state.audioChunks = [];
+
+            if (!blob.size) {
+              setChatStatus("audio vacio");
+              return;
+            }
+
+            await sendVoiceBlob(blob);
+          };
+
+          state.recorder.start();
           state.listening = true;
           voiceBtn.textContent = "Stop";
-          setChatStatus("escuchando...");
+          setChatStatus("grabando...");
         } catch (error) {
-          setChatStatus("no inicia voz");
+          setChatStatus("micro denegado");
         }
       }
 
       function stopVoice() {
-        if (!state.recognition || !state.listening) return;
-        setChatStatus("transcribiendo...");
-        state.recognition.stop();
+        if (!state.recorder || !state.listening) return;
+        setChatStatus("subiendo audio...");
+        state.recorder.stop();
       }
 
       function toggleVoice() {
@@ -786,6 +788,76 @@
           setChatStatus("fallo de red");
         } finally {
           sendBtn.disabled = false;
+        }
+      }
+
+      async function sendVoiceBlob(blob) {
+        if (!state.config) {
+          showSetup();
+          return;
+        }
+
+        ensureSessionId();
+        addMessage("voice", "Audio enviado para transcripcion.");
+        sendBtn.disabled = true;
+        voiceBtn.disabled = true;
+        setChatStatus("transcribiendo...");
+
+        try {
+          const dataUrl = await blobToDataUrl(blob);
+          const audioBase64 = dataUrl.includes(",") ? dataUrl.split(",").pop() : dataUrl;
+          const payload = {
+            token: state.config.token,
+            message: "",
+            inputMode: "audio",
+            audioBase64,
+            audioMimeType: blob.type || state.audioMimeType || "audio/webm",
+            audioName: "rabbit-r1.webm",
+            lang: state.config.lang || "es-ES",
+            sessionId: state.sessionId,
+            source: "rabbit-r1-creation",
+            sentAt: new Date().toISOString()
+          };
+
+          const response = await fetch(state.config.endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: new URLSearchParams({ payload: JSON.stringify(payload) })
+          });
+
+          const raw = await response.text();
+          let data = raw;
+
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (error) {
+            data = raw || { reply: `HTTP ${response.status}` };
+          }
+
+          if (response.status === 401 || response.status === 403 || isRevoked(data)) {
+            addMessage("system", "Token revocado. Reconfigura la app.");
+            await revokeLocalConfig();
+            return;
+          }
+
+          if (!response.ok) {
+            addMessage("system", `n8n respondio HTTP ${response.status}`);
+            setChatStatus(`HTTP ${response.status}`);
+            return;
+          }
+
+          if (data.transcript) addMessage("user", data.transcript);
+          const reply = extractReply(data);
+          state.lastReply = reply;
+          addMessage("bot", reply);
+          speakText(reply);
+          setChatStatus("respuesta lista");
+        } catch (error) {
+          addMessage("system", "No se pudo conectar con n8n.");
+          setChatStatus("fallo de red");
+        } finally {
+          sendBtn.disabled = false;
+          voiceBtn.disabled = false;
         }
       }
 

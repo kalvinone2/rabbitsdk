@@ -239,39 +239,6 @@
         text-align: center;
       }
 
-      .cameraSaving {
-        position: absolute;
-        inset: 0;
-        display: none;
-        place-items: center;
-        background: rgba(5, 8, 6, 0.76);
-        color: #f4f2e9;
-        font-size: 11px;
-        font-weight: 900;
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      .cameraPanel.saving .cameraSaving {
-        display: grid;
-      }
-
-      .spinner {
-        width: 34px;
-        height: 34px;
-        margin: 0 auto 9px;
-        border: 4px solid rgba(244, 242, 233, 0.22);
-        border-top-color: #2de38c;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
       .msg {
         margin: 0 0 5px;
         padding: 6px;
@@ -375,12 +342,6 @@
           <video id="cameraVideo" muted playsinline></video>
           <img id="photoPreview" alt="Foto capturada" />
           <div class="cameraHint" id="cameraHint">tap foto</div>
-          <div class="cameraSaving" id="cameraSaving">
-            <div>
-              <div class="spinner"></div>
-              Guardando
-            </div>
-          </div>
         </section>
 
         <footer>
@@ -410,6 +371,7 @@
         mode: "setup",
         lastSideClickAt: 0,
         cameraLongTapTimer: null,
+        cameraSavingTimer: null,
         ignoreNextCameraTap: false,
         cameraSaving: false,
         lastShakeAt: 0,
@@ -501,6 +463,26 @@
       function setCameraSaving(isSaving) {
         state.cameraSaving = isSaving;
         cameraPanel.classList.toggle("saving", isSaving);
+
+        if (state.cameraSavingTimer) {
+          clearInterval(state.cameraSavingTimer);
+          state.cameraSavingTimer = null;
+        }
+
+        if (isSaving) {
+          let dots = 0;
+          const tick = () => {
+            dots = (dots + 1) % 4;
+            const text = `guardando${".".repeat(dots || 3)}`;
+            cameraBadge.textContent = "guardando";
+            cameraHint.textContent = text;
+            setCameraStatus(text);
+          };
+          tick();
+          state.cameraSavingTimer = setInterval(tick, 360);
+          return;
+        }
+
         cameraBadge.textContent = isSaving ? "guardando" : state.photoDataUrl ? "foto" : "preview";
         cameraHint.textContent = isSaving ? "espera..." : state.photoDataUrl ? "tap guarda / long tap borra" : "side foto";
       }
@@ -1169,7 +1151,7 @@
           if (!state.photoDataUrl) {
             capturePhoto();
           } else {
-            setCameraStatus("tap guarda");
+            savePhoto();
           }
           return;
         }

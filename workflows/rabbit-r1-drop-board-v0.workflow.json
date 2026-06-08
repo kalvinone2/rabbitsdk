@@ -91,6 +91,40 @@
           },
           "conditions": [
             {
+              "id": "6f3cb9e9-54b6-4a9f-87f8-29a934e13a34",
+              "leftValue": "={{ $json.action === 'deleteDealt' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7b2a5dbd-58c5-4a10-8a2e-93a5bb1f3353",
+      "name": "Needs delete dealt?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -40,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
               "id": "9cde1185-8634-41d5-aeb1-0ac6f5395674",
               "leftValue": "={{ $json.action === 'instruct' }}",
               "rightValue": true,
@@ -111,7 +145,133 @@
       "typeVersion": 2.2,
       "position": [
         -40,
-        20
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "a3251e4bbb7f4f0bb70e81ffdd16eb0e"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "b45f9ad9-5c54-45f8-8aa0-c513a91f4e97",
+      "name": "Get Drops for cleanup",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        200,
+        160
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "function text(value) {\n  return String(value || '').trim();\n}\n\nfunction getStatus(json) {\n  const property = json.properties?.Status || json.property_status || json.Status || json.status || json['Status|status'] || '';\n  if (typeof property === 'string') return text(property);\n  return text(\n    property.status?.name ||\n    property.select?.name ||\n    property.name ||\n    property.value ||\n    ''\n  );\n}\n\nfunction getTitle(json) {\n  return text(json.property_titulo || json.Titulo || json.titulo || json.title || json.Name || json.name || 'Drop');\n}\n\nconst dealt = $input.all()\n  .map((item) => item.json || {})\n  .filter((json) => getStatus(json).toLowerCase() === 'dealt')\n  .map((json) => ({\n    json: {\n      id: text(json.id || json.pageId || ''),\n      title: getTitle(json),\n      status: 'Dealt',\n      shouldArchive: true\n    }\n  }))\n  .filter((item) => item.json.id);\n\nif (!dealt.length) {\n  return [{\n    json: {\n      ok: true,\n      status: 'ok',\n      action: 'deleteDealt',\n      shouldArchive: false,\n      deleted: 0,\n      reply: 'No hay drops Dealt.'\n    }\n  }];\n}\n\nreturn dealt;"
+      },
+      "id": "a40ee2ed-1fbe-49a6-acec-213c0d230b8f",
+      "name": "Find Dealt drops",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "34f2718f-d212-49ac-8fbb-33b6d6b83f2f",
+              "leftValue": "={{ $json.shouldArchive === true && Boolean($json.id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ed55a206-9844-4b3f-b4da-e208f04febed",
+      "name": "Has Dealt drops?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "archive",
+        "pageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        }
+      },
+      "id": "82d6d078-e3b0-4a8b-8fb5-b6d6e2c73b62",
+      "name": "Archive Dealt page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        920,
+        100
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "REPLACE_WITH_NOTION_CREDENTIAL_ID",
+          "name": "Notion account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const archived = $input.all().length;\n\nreturn [{\n  json: {\n    ok: true,\n    status: 'ok',\n    action: 'deleteDealt',\n    deleted: archived,\n    reply: archived === 1 ? '1 drop Dealt borrado.' : `${archived} drops Dealt borrados.`\n  }\n}];"
+      },
+      "id": "bdeca4ff-e7c7-48fe-9d11-4b8c51cd8685",
+      "name": "Build Dealt cleanup response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ok: true,\n    status: 'ok',\n    action: 'deleteDealt',\n    deleted: 0,\n    reply: 'No hay drops Dealt.'\n  }\n}];"
+      },
+      "id": "c2033738-2bbe-4133-b185-050e87fe5799",
+      "name": "Build No Dealt response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        240
       ]
     },
     {
@@ -456,7 +616,7 @@
       "main": [
         [
           {
-            "node": "Needs instruction?",
+            "node": "Needs delete dealt?",
             "type": "main",
             "index": 0
           }
@@ -464,6 +624,97 @@
         [
           {
             "node": "Build Revoked response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs delete dealt?": {
+      "main": [
+        [
+          {
+            "node": "Get Drops for cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs instruction?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Drops for cleanup": {
+      "main": [
+        [
+          {
+            "node": "Find Dealt drops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Dealt drops": {
+      "main": [
+        [
+          {
+            "node": "Has Dealt drops?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Dealt drops?": {
+      "main": [
+        [
+          {
+            "node": "Archive Dealt page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build No Dealt response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive Dealt page": {
+      "main": [
+        [
+          {
+            "node": "Build Dealt cleanup response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Dealt cleanup response": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build No Dealt response": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
             "type": "main",
             "index": 0
           }

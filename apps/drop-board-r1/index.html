@@ -88,6 +88,13 @@
         white-space: nowrap;
       }
 
+      .headerActions {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
       .panel {
         min-height: 0;
         border: 1px solid #9aa3ad;
@@ -149,6 +156,22 @@
         color: #ffffff;
         font-size: 11px;
         font-weight: 900;
+      }
+
+      .dealtButton {
+        width: 46px;
+        height: 22px;
+        border: 1px solid #171b25;
+        border-radius: 5px;
+        background: #dc2626;
+        color: #ffffff;
+        font-size: 9px;
+        box-shadow: 2px 2px 0 #171b25;
+      }
+
+      .dealtButton.armed {
+        background: #ffb703;
+        color: #171b25;
       }
 
       .key {
@@ -301,7 +324,10 @@
       <section class="view" id="typesView">
         <header>
           <h1>Tipos</h1>
-          <span class="badge" id="typeBadge">0 drops</span>
+          <div class="headerActions">
+            <button class="dealtButton" id="clearDealtBtn" type="button">DEALT</button>
+            <span class="badge" id="typeBadge">0 drops</span>
+          </div>
         </header>
 
         <section class="typeGrid" id="types"></section>
@@ -369,7 +395,8 @@
         recorder: null,
         audioChunks: [],
         audioMimeType: "",
-        listening: false
+        listening: false,
+        clearDealtArmedAt: 0
       };
 
       const setupView = document.getElementById("setupView");
@@ -386,6 +413,7 @@
       const typesEl = document.getElementById("types");
       const itemsEl = document.getElementById("items");
       const backBtn = document.getElementById("backBtn");
+      const clearDealtBtn = document.getElementById("clearDealtBtn");
 
       function encode(value) {
         return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
@@ -658,6 +686,35 @@
         }
       }
 
+      async function clearDealtDrops() {
+        if (!state.config || state.mode !== "types") return;
+
+        const now = Date.now();
+        if (now - state.clearDealtArmedAt > 4200) {
+          state.clearDealtArmedAt = now;
+          clearDealtBtn.classList.add("armed");
+          typesStatus.textContent = "tap otra vez: borrar Dealt";
+          setTimeout(() => {
+            if (Date.now() - state.clearDealtArmedAt >= 4200) {
+              clearDealtBtn.classList.remove("armed");
+            }
+          }, 4300);
+          return;
+        }
+
+        state.clearDealtArmedAt = 0;
+        clearDealtBtn.classList.remove("armed");
+        typesStatus.textContent = "borrando Dealt...";
+
+        try {
+          const data = await postBoard({ action: "deleteDealt" });
+          typesStatus.textContent = data.reply || "Dealt borrados";
+          await refreshBoard();
+        } catch (error) {
+          typesStatus.textContent = error.message || "fallo borrando";
+        }
+      }
+
       async function openType(typeName) {
         state.selectedType = typeName;
         state.items = [];
@@ -776,6 +833,7 @@
       });
 
       backBtn.addEventListener("click", goBack);
+      clearDealtBtn.addEventListener("click", clearDealtDrops);
       window.addEventListener("sideClick", handleSideClick);
       window.addEventListener("longPressStart", startVoice);
       window.addEventListener("longPressEnd", stopVoice);

@@ -52,6 +52,7 @@
       #chatView {
         grid-template-rows: auto 1fr auto;
         gap: 6px;
+        position: relative;
       }
 
       #cameraView {
@@ -194,6 +195,60 @@
         overflow-y: auto;
       }
 
+      #chatView.capturing .messages {
+        border-color: #2de38c;
+        background: #0f1f17;
+        box-shadow: inset 0 0 0 2px rgba(45, 227, 140, 0.55), 0 0 0 2px rgba(45, 227, 140, 0.35);
+      }
+
+      .captureOverlay {
+        position: absolute;
+        inset: 30px 8px 22px;
+        display: none;
+        place-items: center;
+        border: 2px solid #2de38c;
+        border-radius: 7px;
+        background: rgba(7, 17, 12, 0.88);
+        color: #f4f2e9;
+        text-align: center;
+        pointer-events: none;
+        z-index: 3;
+        animation: capturePulse 0.72s ease-in-out infinite alternate;
+      }
+
+      #chatView.capturing .captureOverlay {
+        display: grid;
+      }
+
+      .captureOverlay span,
+      .captureOverlay strong {
+        display: block;
+      }
+
+      .captureOverlay span {
+        margin-bottom: 5px;
+        color: #2de38c;
+        font-size: 42px;
+        line-height: 0.9;
+        font-weight: 950;
+      }
+
+      .captureOverlay strong {
+        font-size: 13px;
+        text-transform: uppercase;
+      }
+
+      @keyframes capturePulse {
+        from {
+          transform: scale(0.98);
+          opacity: 0.82;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
       .cameraPanel {
         position: relative;
         display: grid;
@@ -326,6 +381,12 @@
         </header>
 
         <section class="panel messages" id="messages"></section>
+        <div class="captureOverlay" id="captureOverlay">
+          <div>
+            <span>REC</span>
+            <strong>capturando</strong>
+          </div>
+        </div>
 
         <footer>
           <div class="status" id="chatStatus">listo</div>
@@ -454,6 +515,10 @@
 
       function setChatStatus(text) {
         chatStatus.textContent = text;
+      }
+
+      function setListeningVisual(isListening) {
+        chatView.classList.toggle("capturing", Boolean(isListening));
       }
 
       function setCameraStatus(text) {
@@ -690,6 +755,39 @@
         }
       }
 
+      function playSaveChime() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return false;
+
+        try {
+          const context = new AudioContextClass();
+          const now = context.currentTime;
+          const gain = context.createGain();
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + 0.025);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+          gain.connect(context.destination);
+
+          [880, 1320].forEach((frequency, index) => {
+            const osc = context.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(frequency, now + index * 0.08);
+            osc.connect(gain);
+            osc.start(now + index * 0.08);
+            osc.stop(now + 0.36);
+          });
+
+          setTimeout(() => context.close && context.close(), 520);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function notifySaved() {
+        if (!playSaveChime()) speakText("Guardado");
+      }
+
       function getSupportedAudioMimeType() {
         if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
         const types = [
@@ -869,7 +967,7 @@
 
           const reply = extractReply(data);
           addMessage("bot", reply);
-          speakText(reply);
+          notifySaved();
           await closeCameraMode();
           setChatStatus("mantén PTT");
         } catch (error) {
@@ -966,11 +1064,13 @@
           state.recorder.onerror = () => {
             setChatStatus("error micro");
             state.listening = false;
+            setListeningVisual(false);
             stream.getTracks().forEach((track) => track.stop());
           };
 
           state.recorder.onstop = async () => {
             state.listening = false;
+            setListeningVisual(false);
             stream.getTracks().forEach((track) => track.stop());
 
             const blob = new Blob(state.audioChunks, { type: state.audioMimeType });
@@ -986,14 +1086,17 @@
 
           state.recorder.start();
           state.listening = true;
+          setListeningVisual(true);
           setChatStatus("grabando...");
         } catch (error) {
+          setListeningVisual(false);
           setChatStatus("micro denegado");
         }
       }
 
       function stopVoice() {
         if (!state.recorder || !state.listening) return;
+        setListeningVisual(false);
         setChatStatus("subiendo audio...");
         state.recorder.stop();
       }
@@ -1068,7 +1171,7 @@
           const reply = extractReply(data);
           state.lastReply = reply;
           addMessage("bot", reply);
-          speakText(reply);
+          notifySaved();
           setChatStatus("respuesta lista");
         } catch (error) {
           addMessage("system", "No se pudo conectar con n8n.");
@@ -1133,7 +1236,7 @@
           const reply = extractReply(data);
           state.lastReply = reply;
           addMessage("bot", reply);
-          speakText(reply);
+          notifySaved();
           setChatStatus("respuesta lista");
         } catch (error) {
           addMessage("system", "No se pudo conectar con n8n.");

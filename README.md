@@ -9,6 +9,7 @@ Dos apps de prueba para validar el SDK de Rabbit R1 Creations en hardware real.
 - `apps/instantsfun-r1/`: mini soundboard de Instantsfun con 424 botones precargados, rejilla 2 columnas, reproduccion directa de MP3, shake para parar y boton lateral random.
 - `apps/n8n-chat-r1/`: chat ligero para conectar Rabbit R1 a n8n mediante un QR privado con endpoint y token.
 - `apps/drop-board-r1/`: tablero de drops por area conectado a n8n y Notion, con instrucciones por PTT y refresco automatico del listado.
+- `apps/openai-status-r1/`: panel rapido de gasto mensual, budget y restante estimado de OpenAI Platform via n8n.
 
 ## Desarrollo local
 
@@ -25,6 +26,7 @@ Despues abre:
 - `http://localhost:8080/apps/instantsfun-r1/`
 - `http://localhost:8080/apps/n8n-chat-r1/`
 - `http://localhost:8080/apps/drop-board-r1/`
+- `http://localhost:8080/apps/openai-status-r1/`
 
 En navegador normal veras fallbacks porque las APIs `PluginMessageHandler`, `creationStorage` y `creationSensors` solo existen dentro del R1.
 
@@ -57,6 +59,7 @@ Si publicas en GitHub Pages como proyecto:
 - `https://kalvinone2.github.io/rabbitsdk/apps/instantsfun-r1/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/n8n-chat-r1/`
 - `https://kalvinone2.github.io/rabbitsdk/apps/drop-board-r1/`
+- `https://kalvinone2.github.io/rabbitsdk/apps/openai-status-r1/`
 
 ## Configuracion privada de n8n Chat R1 / Mind Drop
 
@@ -79,6 +82,12 @@ El workflow publico usa placeholders para secretos:
 - `REPLACE_WITH_NOTION_CREDENTIAL_ID`
 
 Para evitar que el lector QR del R1 crashee la app, `n8n-chat-r1` tambien soporta configurar por PIN contra `https://n8n.calvonavarro.com/webhook/rabbit-r1-config-pin`. El workflow importable esta en `workflows/rabbit-r1-config-pin.workflow.json` y devuelve la misma config privada que antes iba dentro del QR.
+
+## Configuracion privada de OpenAI Status R1
+
+La app `openai-status-r1` usa el mismo PIN bootstrap, enviando `app: "openai-status"` para recibir su endpoint y token privados. El workflow importable esta en `workflows/rabbit-r1-openai-status-v0.workflow.json`.
+
+OpenAI expone costes por organizacion con `/v1/organization/costs`; no expone un saldo restante estable en la API publica. Por eso el workflow calcula `restante = monthlyBudgetUsd - coste del mes`. Para que funcione, configura en n8n una Admin API key de OpenAI con scope `api.usage.read` y ajusta `monthlyBudgetUsd` al budget real que quieras controlar.
 
 ## Generador QR
 

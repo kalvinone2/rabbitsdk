@@ -1,0 +1,188 @@
+{
+  "name": "Rabbit R1 OpenAI Status V0",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup\n\nEndpoint privado para OpenAI Status R1.\n\n- Webhook: `/webhook/rabbit-r1-openai-status-v0`\n- Sustituye `REPLACE_WITH_RABBIT_TOKEN` por un token privado para la app.\n- Sustituye `REPLACE_WITH_OPENAI_ADMIN_API_KEY` por una Admin API key con scope `api.usage.read`.\n- Ajusta `monthlyBudgetUsd` al limite mensual real que quieras mostrar en el Rabbit.\n\nLa API oficial de OpenAI expone costes de organizacion; el restante se calcula como budget mensual configurado menos coste del mes."
+      },
+      "id": "7ea14f61-14af-4d5e-9aa8-2fdff41b6bf0",
+      "name": "Setup note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rabbit-r1-openai-status-v0",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6dfe720e-dcc7-4611-9da7-58a10895e6fd",
+      "name": "OpenAI Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -620,
+        80
+      ],
+      "webhookId": "rabbit-r1-openai-status-v0"
+    },
+    {
+      "parameters": {
+        "jsCode": "const expectedToken = 'REPLACE_WITH_RABBIT_TOKEN';\n\nfunction parsePayload(input) {\n  const direct = input.payload ?? input.body?.payload ?? input.body ?? input;\n  if (typeof direct === 'string') {\n    try { return JSON.parse(direct); } catch (error) { return { token: direct }; }\n  }\n  return direct || {};\n}\n\nconst payload = parsePayload($json);\nconst token = String(payload.token || payload.apiKey || payload.key || '').trim();\nconst tokenConfigured = expectedToken && !expectedToken.startsWith('REPLACE_WITH_');\nconst valid = Boolean(tokenConfigured && token === expectedToken);\n\nreturn [{\n  json: {\n    valid,\n    revoked: !valid,\n    status: valid ? 'ok' : 'revoked',\n    reply: valid ? 'Consultando costes OpenAI.' : 'Token revocado o invalido.',\n    source: String(payload.source || 'rabbit-r1-openai-status'),\n    sentAt: payload.sentAt || '',\n    receivedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "60aef2e2-582f-4d7e-874a-e4b86c198f1e",
+      "name": "Validate Rabbit token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e5360d62-6fd7-4195-a357-af2e07b86542",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fe81cebe-97cb-4db7-a33b-ae8d3f4943ef",
+      "name": "Token valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -120,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const openAiAdminApiKey = 'REPLACE_WITH_OPENAI_ADMIN_API_KEY';\nconst monthlyBudgetUsd = 100;\n\nfunction roundMoney(value) {\n  return Math.round(Number(value || 0) * 100) / 100;\n}\n\nfunction monthStartUtc(now) {\n  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));\n}\n\nfunction addMonthsUtc(date, months) {\n  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1, 0, 0, 0));\n}\n\nfunction readCostValue(result) {\n  return Number(result?.amount?.value ?? result?.amount ?? 0) || 0;\n}\n\nif (!openAiAdminApiKey || openAiAdminApiKey.startsWith('REPLACE_WITH_')) {\n  return [{ json: { ok: false, status: 'error', error: 'missing_openai_admin_key', reply: 'Falta Admin API key de OpenAI en n8n.' } }];\n}\n\nconst now = new Date();\nconst start = monthStartUtc(now);\nconst nextMonth = addMonthsUtc(start, 1);\nconst end = now < nextMonth ? now : nextMonth;\nconst startTime = Math.floor(start.getTime() / 1000);\nconst endTime = Math.floor(end.getTime() / 1000);\n\ntry {\n  const data = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'https://api.openai.com/v1/organization/costs',\n    qs: {\n      start_time: startTime,\n      end_time: endTime,\n      bucket_width: '1d',\n      limit: 31\n    },\n    headers: {\n      Authorization: `Bearer ${openAiAdminApiKey}`\n    },\n    json: true\n  });\n\n  const buckets = Array.isArray(data.data) ? data.data : [];\n  const spent = buckets.reduce((sum, bucket) => {\n    const results = Array.isArray(bucket.results) ? bucket.results : [];\n    return sum + results.reduce((inner, result) => inner + readCostValue(result), 0);\n  }, 0);\n\n  const currency = String(buckets.flatMap((bucket) => bucket.results || []).find((result) => result?.amount?.currency)?.amount?.currency || 'usd');\n  const budget = Number(monthlyBudgetUsd) || 0;\n  const remaining = budget ? budget - spent : 0;\n  const elapsedMs = Math.max(1, now.getTime() - start.getTime());\n  const elapsedDays = elapsedMs / 86400000;\n  const dailyAverage = spent / elapsedDays;\n  const daysUntilEmpty = budget > 0 && dailyAverage > 0 && remaining > 0 ? remaining / dailyAverage : null;\n  const depletionDate = daysUntilEmpty === null ? null : new Date(now.getTime() + daysUntilEmpty * 86400000).toISOString();\n  const percentUsed = budget > 0 ? (spent / budget) * 100 : 0;\n\n  return [{\n    json: {\n      ok: true,\n      status: 'ok',\n      currency,\n      spentUsd: roundMoney(spent),\n      budgetUsd: roundMoney(budget),\n      remainingUsd: roundMoney(remaining),\n      percentUsed: Math.round(percentUsed),\n      dailyAverageUsd: roundMoney(dailyAverage),\n      daysUntilEmpty: daysUntilEmpty === null ? null : Math.round(daysUntilEmpty * 10) / 10,\n      depletionDate,\n      periodStart: start.toISOString(),\n      periodEnd: end.toISOString(),\n      updatedAt: now.toISOString(),\n      source: 'openai_organization_costs',\n      reply: budget > 0\n        ? `Quedan ${roundMoney(remaining)} ${currency.toUpperCase()} de ${roundMoney(budget)}.`\n        : `Gastado este mes: ${roundMoney(spent)} ${currency.toUpperCase()}. Configura budget en n8n.`\n    }\n  }];\n} catch (error) {\n  const message = error?.response?.body?.error?.message || error?.message || 'openai_costs_error';\n  return [{\n    json: {\n      ok: false,\n      status: 'error',\n      error: message,\n      reply: message.includes('insufficient permissions') || message.includes('Missing scopes')\n        ? 'La key de OpenAI necesita scope api.usage.read.'\n        : 'No se pudo consultar OpenAI Platform.'\n    }\n  }];\n}"
+      },
+      "id": "999e58f1-87eb-4a3f-a26e-d53e93317f18",
+      "name": "Fetch OpenAI costs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        140,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "f8133b1f-486d-40df-8e24-49af7cf82df3",
+      "name": "Respond Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "9219ca46-ff30-4994-9875-6977a0d5c05d",
+      "name": "Respond Invalid Token",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        140,
+        180
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Status Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Rabbit token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Rabbit token": {
+      "main": [
+        [
+          {
+            "node": "Token valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token valid?": {
+      "main": [
+        [
+          {
+            "node": "Fetch OpenAI costs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch OpenAI costs": {
+      "main": [
+        [
+          {
+            "node": "Respond Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a8f45b4e-3a8d-4e23-af4e-b28bdb3d793f",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

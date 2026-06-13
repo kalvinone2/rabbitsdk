@@ -110,8 +110,8 @@
       .pinPanel {
         display: grid;
         grid-template-rows: auto 1fr;
-        gap: 6px;
-        padding: 7px;
+        gap: 5px;
+        padding: 6px;
       }
 
       .pinLabel {
@@ -122,14 +122,14 @@
       }
 
       .pinDisplay {
-        height: 32px;
+        height: 35px;
         border: 1px solid #2c5d44;
         border-radius: 6px;
         background: #101812;
         color: #f4f2e9;
         display: grid;
         place-items: center;
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 900;
         letter-spacing: 4px;
       }
@@ -177,11 +177,13 @@
       .key {
         height: auto;
         min-height: 0;
-        border: 1px solid #2c5d44;
+        border: 2px solid #2c5d44;
         border-radius: 6px;
         background: #223229;
         color: #f4f2e9;
-        font-size: 16px;
+        font-size: 18px;
+        font-weight: 950;
+        box-shadow: 2px 2px 0 #07110c;
       }
 
       .key.primary {
@@ -413,12 +415,16 @@
 
     <script>
       const CONFIG_KEY = "n8n_chat_r1_config";
+      const AUTH_KEY = "n8n_chat_r1_auth";
       const SESSION_KEY = "n8n_chat_r1_session";
       const HISTORY_KEY = "n8n_chat_r1_history";
       const CONFIG_BOOTSTRAP_ENDPOINT = "https://n8n.calvonavarro.com/webhook/rabbit-r1-config-pin";
+      const APP_SLUG = "mind-drop";
+      const APP_BUILD = new URLSearchParams(window.location.search).get("v") || "local";
 
       const state = {
         config: null,
+        auth: null,
         history: [],
         sessionId: "",
         pin: "",
@@ -619,8 +625,48 @@
           name,
           speak: data.speak !== false,
           lang: String(data.lang || "es-ES").trim() || "es-ES",
-          v: Number(data.v || 1)
+          v: Number(data.v || 1),
+          configVersion: Number(data.configVersion || data.v || 1)
         };
+      }
+
+      function maybeReloadForVersion(data) {
+        const latestVersion = String(data.latestVersion || data.appVersion || "").trim();
+        const reloadUrl = String(data.reloadUrl || "").trim();
+        if (!latestVersion || !reloadUrl || latestVersion === APP_BUILD) return false;
+
+        try {
+          const target = new URL(reloadUrl, window.location.href);
+          if (target.href !== window.location.href) {
+            window.location.replace(target.href);
+            return true;
+          }
+        } catch (error) {
+          console.warn("invalid reloadUrl", error);
+        }
+
+        return false;
+      }
+
+      async function persistBootstrap(data) {
+        if (maybeReloadForVersion(data)) return true;
+
+        const config = parseConfig(JSON.stringify(data.config || data));
+        state.config = config;
+        await setStored(CONFIG_KEY, config, true);
+
+        const deviceToken = String(data.deviceToken || data.sessionToken || data.auth?.deviceToken || "").trim();
+        if (deviceToken) {
+          state.auth = {
+            deviceToken,
+            app: APP_SLUG,
+            configVersion: Number(data.configVersion || config.configVersion || config.v || 1),
+            savedAt: new Date().toISOString()
+          };
+          await setStored(AUTH_KEY, state.auth, true);
+        }
+
+        return false;
       }
 
       async function saveConfigFromText(raw) {
@@ -648,7 +694,14 @@
           const response = await fetch(CONFIG_BOOTSTRAP_ENDPOINT, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-            body: new URLSearchParams({ payload: JSON.stringify({ pin }) })
+            body: new URLSearchParams({
+              payload: JSON.stringify({
+                app: APP_SLUG,
+                pin,
+                installedVersion: APP_BUILD,
+                sessionId: state.sessionId || ""
+              })
+            })
           });
 
           const raw = await response.text();
@@ -664,12 +717,71 @@
             throw new Error(data.reply || data.error || `HTTP ${response.status}`);
           }
 
-          const config = data.config || data;
-          await saveConfigFromText(JSON.stringify(config));
+          const reloading = await persistBootstrap(data);
+          if (!reloading) {
+            setSetupStatus("sesion guardada");
+            showChat();
+          }
         } catch (error) {
           state.pin = "";
           updatePinDisplay();
           setSetupStatus(error.message || "PIN invalido");
+        }
+      }
+
+      async function bootstrapWithStoredSession() {
+        state.auth = await getStored(AUTH_KEY, null, true);
+        const deviceToken = String(state.auth?.deviceToken || "").trim();
+        if (!deviceToken) return false;
+
+        setSetupStatus("validando sesion...");
+
+        try {
+          const response = await fetch(CONFIG_BOOTSTRAP_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: new URLSearchParams({
+              payload: JSON.stringify({
+                app: APP_SLUG,
+                deviceToken,
+                installedVersion: APP_BUILD,
+                configVersion: state.auth?.configVersion || 0,
+                sessionId: state.sessionId || ""
+              })
+            })
+          });
+
+          const raw = await response.text();
+          let data = {};
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (error) {
+            throw new Error("respuesta invalida");
+          }
+
+          if (!response.ok || data.revoked || data.status === "revoked" || data.error) {
+            await removeStored(AUTH_KEY, true);
+            await removeStored(CONFIG_KEY, true);
+            state.auth = null;
+            state.config = null;
+            return false;
+          }
+
+          const reloading = await persistBootstrap(data);
+          if (!reloading) {
+            showChat();
+            setChatStatus("mantén PTT");
+          }
+          return true;
+        } catch (error) {
+          const cachedConfig = await getStored(CONFIG_KEY, null, true);
+          if (cachedConfig && deviceToken) {
+            state.config = cachedConfig;
+            showChat();
+            setChatStatus("offline");
+            return true;
+          }
+          return false;
         }
       }
 
@@ -1111,7 +1223,9 @@
 
       async function revokeLocalConfig() {
         await removeStored(CONFIG_KEY, true);
+        await removeStored(AUTH_KEY, true);
         state.config = null;
+        state.auth = null;
         state.history = [];
         await setStored(HISTORY_KEY, state.history);
         setSetupStatus("token revocado");
@@ -1308,10 +1422,14 @@
 
       async function boot() {
         state.config = null;
+        state.auth = null;
         state.history = await getStored(HISTORY_KEY, []);
         state.sessionId = await getStored(SESSION_KEY, "");
         initCameraShake();
         showSetup();
+        if (!(await bootstrapWithStoredSession())) {
+          setSetupStatus("sin configurar");
+        }
       }
 
       boot();

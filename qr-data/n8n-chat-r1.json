@@ -1,6 +1,6 @@
 {
   "title": "n8n Chat R1",
-  "url": "https://kalvinone2.github.io/rabbitsdk/apps/n8n-chat-r1/",
+  "url": "https://kalvinone2.github.io/rabbitsdk/apps/n8n-chat-r1/?v=40a57b2",
   "description": "Chat para Rabbit R1 configurable por QR privado y conectado a un webhook de n8n.",
   "iconUrl": "",
   "themeColor": "#2de38c"
